@@ -3,7 +3,6 @@ import { prisma } from '../models/prisma.js';
 
 export const productsRouter = Router();
 
-// TODO(copilot): Add review routes here during Demo 2, including paginated reads.
 
 // GET /api/products — list all products
 productsRouter.get('/', async (req: Request, res: Response) => {
@@ -15,7 +14,21 @@ productsRouter.get('/', async (req: Request, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  res.json({ data: products, total: products.length });
+  const ratings = await prisma.review.groupBy({
+    by: ['productId'],
+    where: { status: 'approved' },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  const ratingMap = new Map(ratings.map((r) => [r.productId, { averageRating: r._avg.rating ?? 0, reviewCount: r._count.rating }]));
+
+  const data = products.map((p) => ({
+    ...p,
+    rating: ratingMap.get(p.id) ?? { averageRating: 0, reviewCount: 0 },
+  }));
+
+  res.json({ data, total: data.length });
 });
 
 // GET /api/products/:id — single product
@@ -29,7 +42,19 @@ productsRouter.get('/:id', async (req: Request, res: Response) => {
     return;
   }
 
-  res.json(product);
+  const aggregate = await prisma.review.aggregate({
+    where: { productId: product.id, status: 'approved' },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  res.json({
+    ...product,
+    rating: {
+      averageRating: aggregate._avg.rating ?? 0,
+      reviewCount: aggregate._count.rating,
+    },
+  });
 });
 
 // GET /api/products/categories — list unique categories

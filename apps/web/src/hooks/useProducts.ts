@@ -9,6 +9,7 @@ interface Product {
   imageUrl: string;
   category: string;
   stock: number;
+  rating?: { averageRating: number; reviewCount: number };
 }
 
 export function useProducts(category?: string) {

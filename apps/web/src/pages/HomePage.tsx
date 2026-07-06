@@ -99,6 +99,8 @@ export function HomePage() {
                 price={product.price}
                 imageUrl={product.imageUrl}
                 category={product.category}
+                averageRating={product.rating?.averageRating}
+                reviewCount={product.rating?.reviewCount}
                 onAddToCart={() => {
                   void addItem(product.id, 1);
                 }}

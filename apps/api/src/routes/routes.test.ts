@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import bcrypt from 'bcryptjs';
 import { app } from '../app.js';
 import { prisma } from '../models/prisma.js';
 
@@ -14,6 +15,7 @@ describe('GET /api/health', () => {
 
 describe('Products API', () => {
   beforeAll(async () => {
+    await prisma.review.deleteMany();
     await prisma.cartItem.deleteMany();
     await prisma.cart.deleteMany();
     await prisma.product.deleteMany();
@@ -70,6 +72,7 @@ describe('Products API', () => {
 
 describe('Auth API', () => {
   beforeAll(async () => {
+    await prisma.review.deleteMany();
     await prisma.cartItem.deleteMany();
     await prisma.cart.deleteMany();
     await prisma.user.deleteMany();
@@ -181,5 +184,146 @@ describe('Cart API', () => {
       .delete(`/api/cart/items/${itemId}`)
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(204);
+  });
+});
+
+describe('Reviews API', () => {
+  let customerToken: string;
+  let adminToken: string;
+  let productId: string;
+  let reviewId: string;
+
+  beforeAll(async () => {
+    await prisma.review.deleteMany();
+    await prisma.cartItem.deleteMany();
+    await prisma.cart.deleteMany();
+    await prisma.product.deleteMany();
+    await prisma.user.deleteMany();
+
+    // Create admin
+    const adminPass = await bcrypt.hash('Admin123!', 10);
+    await prisma.user.create({
+      data: { email: 'admin-review@zava.com', password: adminPass, name: 'Admin', role: 'admin' },
+    });
+    const adminLogin = await request(app).post('/api/auth/login').send({ email: 'admin-review@zava.com', password: 'Admin123!' });
+    adminToken = adminLogin.body.token;
+
+    // Create customer
+    const custRes = await request(app).post('/api/auth/register').send({
+      email: 'review-customer@zava.com',
+      password: 'CustPass123',
+      name: 'Review Customer',
+    });
+    customerToken = custRes.body.token;
+
+    // Create product
+    const product = await prisma.product.create({
+      data: { name: 'Review Test Product', description: 'A product for testing reviews', price: 1500, imageUrl: '/img.svg', category: 'Test', stock: 10 },
+    });
+    productId = product.id;
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('POST /api/reviews requires authentication', async () => {
+    const res = await request(app).post('/api/reviews').send({ productId, rating: 5, text: 'Great product for testing' });
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /api/reviews validates rating range', async () => {
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ productId, rating: 6, text: 'This rating is too high for the system' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/reviews validates text length', async () => {
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ productId, rating: 4, text: 'Short' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/reviews creates a review', async () => {
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ productId, rating: 5, text: 'Absolutely love this product, highly recommend!' });
+    expect(res.status).toBe(201);
+    expect(res.body.rating).toBe(5);
+    expect(res.body.status).toBe('pending');
+    reviewId = res.body.id;
+  });
+
+  it('POST /api/reviews rejects duplicate review', async () => {
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ productId, rating: 3, text: 'Trying to submit a second review for the same product' });
+    expect(res.status).toBe(409);
+  });
+
+  it('POST /api/reviews returns 404 for non-existent product', async () => {
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ productId: 'nonexistent-id', rating: 4, text: 'This product does not exist in the database' });
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/reviews/product/:id returns only approved reviews', async () => {
+    const res = await request(app).get(`/api/reviews/product/${productId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0); // review is still pending
+    expect(res.body.aggregate.reviewCount).toBe(0);
+  });
+
+  it('GET /api/admin/reviews requires admin role', async () => {
+    const res = await request(app).get('/api/admin/reviews').set('Authorization', `Bearer ${customerToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/admin/reviews lists reviews for admin', async () => {
+    const res = await request(app).get('/api/admin/reviews').set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('PATCH /api/admin/reviews/:id requires admin role', async () => {
+    const res = await request(app)
+      .patch(`/api/admin/reviews/${reviewId}`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ status: 'approved' });
+    expect(res.status).toBe(403);
+  });
+
+  it('PATCH /api/admin/reviews/:id approves a review', async () => {
+    const res = await request(app)
+      .patch(`/api/admin/reviews/${reviewId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'approved' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('approved');
+  });
+
+  it('GET /api/reviews/product/:id returns approved reviews with aggregate', async () => {
+    const res = await request(app).get(`/api/reviews/product/${productId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.aggregate.averageRating).toBe(5);
+    expect(res.body.aggregate.reviewCount).toBe(1);
+  });
+
+  it('GET /api/products returns products with rating data', async () => {
+    const res = await request(app).get('/api/products');
+    expect(res.status).toBe(200);
+    const product = res.body.data.find((p: any) => p.id === productId);
+    expect(product.rating).toBeDefined();
+    expect(product.rating.averageRating).toBe(5);
+    expect(product.rating.reviewCount).toBe(1);
   });
 });

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { formatPrice } from '@zava/shared';
 import { api } from '../services/apiClient';
 import { useCart } from '../hooks/useCart';
+import { ReviewList } from '../components/ReviewList';
+import { ReviewForm } from '../components/ReviewForm';
 
 interface Product {
   id: string;
@@ -18,7 +20,12 @@ export function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
   const { addItem } = useCart();
+
+  const handleReviewSubmitted = useCallback(() => {
+    setReviewRefresh((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -50,10 +57,14 @@ export function ProductPage() {
           >
             Add to Cart
           </button>
-
-
         </div>
       </div>
+
+      <section className="product-detail__reviews">
+        <h2>Customer Reviews</h2>
+        <ReviewForm productId={product.id} onSubmitted={handleReviewSubmitted} />
+        <ReviewList productId={product.id} refreshKey={reviewRefresh} />
+      </section>
     </div>
   );
 }

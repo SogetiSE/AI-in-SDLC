@@ -61,4 +61,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     }),
+
+  // Reviews
+  getProductReviews: (productId: string, page = 1) =>
+    request<{ data: any[]; total: number; page: number; pageSize: number; aggregate: { averageRating: number; reviewCount: number } }>(
+      `/reviews/product/${productId}?page=${page}`,
+    ),
+
+  submitReview: (data: { productId: string; rating: number; text: string }) =>
+    request<any>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Admin Reviews
+  getAdminReviews: (status?: string, page = 1) =>
+    request<{ data: any[]; total: number; page: number; pageSize: number }>(
+      `/admin/reviews?page=${page}${status ? `&status=${status}` : ''}`,
+    ),
+
+  moderateReview: (reviewId: string, status: 'approved' | 'rejected') =>
+    request<any>(`/admin/reviews/${reviewId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 };

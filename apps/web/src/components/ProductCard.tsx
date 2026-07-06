@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatPrice } from '@zava/shared';
+import { StarRating } from './StarRating';
 
 interface ProductCardProps {
   id: string;
@@ -8,10 +9,12 @@ interface ProductCardProps {
   price: number;
   imageUrl: string;
   category: string;
+  averageRating?: number;
+  reviewCount?: number;
   onAddToCart?: () => void;
 }
 
-export function ProductCard({ id, name, description, price, imageUrl, category, onAddToCart }: ProductCardProps) {
+export function ProductCard({ id, name, description, price, imageUrl, category, averageRating, reviewCount, onAddToCart }: ProductCardProps) {
   return (
     <div className="product-card">
       <div className="product-card__media">
@@ -27,6 +30,11 @@ export function ProductCard({ id, name, description, price, imageUrl, category, 
         <Link to={`/products/${id}`}>
           <h3 className="product-card__name">{name}</h3>
         </Link>
+        {reviewCount !== undefined && reviewCount > 0 && (
+          <div className="product-card__rating">
+            <StarRating rating={averageRating ?? 0} count={reviewCount} size="sm" />
+          </div>
+        )}
         <p className="product-card__description">{description}</p>
         <p className="product-card__price">{formatPrice(price)}</p>
       </div>

@@ -85,6 +85,7 @@ async function main() {
   console.log('🌱 Seeding Zava database...');
 
   // Clean existing data
+  await prisma.review.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.product.deleteMany();
@@ -103,7 +104,7 @@ async function main() {
 
   // Create test customer
   const customerPassword = await bcrypt.hash('Customer123!', 10);
-  await prisma.user.create({
+  const customer = await prisma.user.create({
     data: {
       email: 'customer@example.com',
       password: customerPassword,
@@ -112,12 +113,44 @@ async function main() {
     },
   });
 
+  // Create additional reviewer
+  const reviewer = await prisma.user.create({
+    data: {
+      email: 'reviewer@example.com',
+      password: customerPassword,
+      name: 'Alex Rivera',
+      role: 'customer',
+    },
+  });
+
   // Create products
+  const createdProducts = [];
   for (const product of products) {
-    await prisma.product.create({ data: product });
+    createdProducts.push(await prisma.product.create({ data: product }));
   }
 
-  console.log(`✅ Seeded ${products.length} products, 2 users`);
+  // Create sample reviews
+  const reviews = [
+    { productIdx: 0, userId: customer.id, rating: 5, text: 'Incredible espresso blend. The dark cacao notes really come through in a flat white.', status: 'approved' },
+    { productIdx: 0, userId: reviewer.id, rating: 4, text: 'Very smooth with a nice finish. A bit pricey but worth it for special mornings.', status: 'approved' },
+    { productIdx: 3, userId: customer.id, rating: 5, text: 'Beautiful design and the ceramic dripper produces a perfectly clean cup every time.', status: 'approved' },
+    { productIdx: 5, userId: reviewer.id, rating: 4, text: 'Keeps coffee hot for hours. The clay finish looks even better in person.', status: 'approved' },
+    { productIdx: 1, userId: customer.id, rating: 4, text: 'Great daily driver. The bergamot lift is subtle but adds a nice complexity.', status: 'pending' },
+  ];
+
+  for (const review of reviews) {
+    await prisma.review.create({
+      data: {
+        productId: createdProducts[review.productIdx].id,
+        userId: review.userId,
+        rating: review.rating,
+        text: review.text,
+        status: review.status,
+      },
+    });
+  }
+
+  console.log(`✅ Seeded ${products.length} products, 3 users, ${reviews.length} reviews`);
 }
 
 main()

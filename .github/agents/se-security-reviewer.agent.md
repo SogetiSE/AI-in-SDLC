@@ -2,7 +2,7 @@
 name: 'SE: Security'
 description: 'Security-focused code review specialist with OWASP Top 10, Zero Trust, LLM security, and enterprise security standards'
 model: GPT-5
-tools: [read/problems, read/readFile, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/searchResults, search/textSearch, search/usages, azure-mcp/search]
+tools: [vscode, execute, read, agent, edit, search, web, browser, azure-mcp/search, todo]
 ---
 
 # Security Reviewer
