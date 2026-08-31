@@ -142,6 +142,23 @@ Show `.github/hooks/quality.json` and explain the four hooks:
 
 Instructions guide. Hooks enforce. Non deterministic LLM, The secret scanner bridges into Demo 4 — it is a fast, best-effort guardrail, while GitHub Advanced Security push protection is the auditable backstop no one can quietly skip.
 
+### 3c. Explicit handoffs vs. free-text delegation
+
+After the TDD cycle from 3a completes, point out the buttons that appear at the bottom of the response: **🔁 Next criterion · 🔍 Review · 🔒 Security check**. Handoffs are one-at-a-time — clicking one transitions into that agent and starts a new turn, so we chain them into a sequence rather than clicking several at once.
+
+**Live action**
+
+1. Click **🔍 Review** — routes to the `reviewer` agent with a fixed prompt, no typing. It produces its full review: numbered findings by file with 🔴/🟡/🟢 severity and a verdict.
+2. When the review finishes, a **🔒 Security check** button appears below it — this handoff is declared in `reviewer.agent.md`, chaining the workflow onward.
+3. Click **🔒 Security check** — note it pre-fills the prompt and waits for confirmation (`send: false`) instead of auto-dispatching, so the audience can read the review first.
+4. Open `tdd.agent.md` and `reviewer.agent.md` and show the `handoffs:` YAML next to the prose workflow steps.
+
+**Talking point**
+
+Two ways to move between agents. The Red → Green → Refactor steps are _free-text handoffs_ — the model reads the workflow and decides when to delegate; adaptive, invisible, non-deterministic. The buttons are the `handoffs:` _attribute_ — the harness renders them, the prompt sent is fixed, and the user stays in control of the branch point. Because each handoff is a single transition, chaining them (tdd → review → security) is how you build a guided, multi-step workflow.
+
+Rule of thumb: **free-text when the model should judge the flow; the attribute when a human should pick the next step or you need the routing to be repeatable and auditable.** They compose — the same agent uses both.
+
 ## Demo 4 — Ask Agent (Presenter B, 5 min)
 
 **Prompt 1** _(Ask agent)_ (Skill )
