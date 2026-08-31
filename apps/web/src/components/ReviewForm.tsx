@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { StarRatingInput } from './StarRatingInput';
 import { api, ApiError } from '../services/apiClient';
 
+const MAX_REVIEW_TEXT_LENGTH = 2000;
+
 interface ReviewFormProps {
   productId: string;
   onSubmitted: () => void;
@@ -62,9 +64,11 @@ export function ReviewForm({ productId, onSubmitted }: ReviewFormProps) {
           onChange={(e) => setText(e.target.value)}
           placeholder="Share your experience with this product (min 10 characters)..."
           rows={4}
-          maxLength={1000}
+          maxLength={MAX_REVIEW_TEXT_LENGTH}
         />
-        <span className="review-form__char-count">{text.length}/1000</span>
+        <span className="review-form__char-count">
+          {text.length}/{MAX_REVIEW_TEXT_LENGTH}
+        </span>
       </div>
       {error && <p className="review-form__error">{error}</p>}
       <button className="btn btn--primary" type="submit" disabled={!isValid || submitting}>
