@@ -16,6 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   carts     Cart[]
+  reviews   Review[]
 }
 
 model Product {
@@ -29,9 +30,7 @@ model Product {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   cartItems   CartItem[]
-
-  // TODO(copilot): Add a Review relation for Demo 2.
-  // Reviews need rating, text, moderation status, and aggregate display support.
+  reviews     Review[]
 }
 
 model Cart {
@@ -52,8 +51,20 @@ model CartItem {
   quantity  Int
 }
 
-// TODO(copilot): Add a Review model during Demo 2.
-// Suggested fields: id, productId, userId, rating, text, status, createdAt, updatedAt.
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  text      String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, userId])
+}
 
 // TODO(copilot): Add a Wishlist model for GitHub issue #2.
 // Suggested fields: id, userId, productId, createdAt.
