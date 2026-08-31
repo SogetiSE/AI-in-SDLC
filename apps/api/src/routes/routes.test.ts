@@ -327,3 +327,98 @@ describe('Reviews API', () => {
     expect(product.rating.reviewCount).toBe(1);
   });
 });
+
+describe('Review text validation', () => {
+  const MIN_TEXT_LENGTH = 10;
+  const MAX_TEXT_LENGTH = 2000;
+
+  let productId: string;
+  let userCounter = 0;
+
+  async function registerFreshUser(): Promise<string> {
+    userCounter += 1;
+    const res = await request(app).post('/api/auth/register').send({
+      email: `text-validation-${userCounter}@zava.com`,
+      password: 'TextPass123',
+      name: `Text Validator ${userCounter}`,
+    });
+    return res.body.token;
+  }
+
+  async function submitReview(text: string): Promise<request.Response> {
+    const token = await registerFreshUser();
+    return request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId, rating: 4, text });
+  }
+
+  beforeAll(async () => {
+    await prisma.review.deleteMany();
+    await prisma.cartItem.deleteMany();
+    await prisma.cart.deleteMany();
+
+    const product = await prisma.product.create({
+      data: {
+        name: 'Text Validation Product',
+        description: 'A product used for review text validation tests',
+        price: 2500,
+        imageUrl: '/img.svg',
+        category: 'Test',
+        stock: 10,
+      },
+    });
+    productId = product.id;
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('rejects text shorter than 10 characters with 400', async () => {
+    const res = await submitReview('a'.repeat(MIN_TEXT_LENGTH - 1));
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.text).toBeDefined();
+  });
+
+  it('accepts text of exactly 2000 characters', async () => {
+    const res = await submitReview('a'.repeat(MAX_TEXT_LENGTH));
+    expect(res.status).toBe(201);
+    expect(res.body.text).toHaveLength(MAX_TEXT_LENGTH);
+  });
+
+  it('rejects text longer than 2000 characters with 400', async () => {
+    const res = await submitReview('a'.repeat(MAX_TEXT_LENGTH + 1));
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.text).toBeDefined();
+  });
+
+  it('accepts text of 1500 characters', async () => {
+    const res = await submitReview('a'.repeat(1500));
+    expect(res.status).toBe(201);
+    expect(res.body.text).toHaveLength(1500);
+  });
+
+  it('rejects text containing a script tag with 400', async () => {
+    const res = await submitReview('Great product <script>alert(1)</script> really loved it');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.text).toBeDefined();
+  });
+
+  it('rejects text containing a bold tag with 400', async () => {
+    const res = await submitReview('This product is <b>bold</b> and very comfortable');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.text).toBeDefined();
+  });
+
+  it('rejects text containing an img tag with 400', async () => {
+    const res = await submitReview('Nice product <img src=x onerror=y> would buy again');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.text).toBeDefined();
+  });
+});

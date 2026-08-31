@@ -7,10 +7,30 @@ import { validate } from '../middleware/validation.js';
 export const reviewsRouter = Router();
 export const adminReviewsRouter = Router();
 
+const HTML_TAG_PATTERN = /<[^>]+>/;
+const MIN_REVIEW_TEXT_LENGTH = 10;
+const MAX_REVIEW_TEXT_LENGTH = 2000;
+const MIN_RATING = 1;
+const MAX_RATING = 5;
+
 const createReviewSchema = z.object({
-  productId: z.string().min(1),
-  rating: z.number().int().min(1).max(5),
-  text: z.string().min(10).max(1000),
+  productId: z.string().min(1, { message: 'Product ID is required' }),
+  rating: z
+    .number()
+    .int({ message: 'Rating must be a whole number' })
+    .min(MIN_RATING, { message: `Rating must be at least ${MIN_RATING}` })
+    .max(MAX_RATING, { message: `Rating must be at most ${MAX_RATING}` }),
+  text: z
+    .string()
+    .min(MIN_REVIEW_TEXT_LENGTH, {
+      message: `Review text must be at least ${MIN_REVIEW_TEXT_LENGTH} characters`,
+    })
+    .max(MAX_REVIEW_TEXT_LENGTH, {
+      message: `Review text must be at most ${MAX_REVIEW_TEXT_LENGTH} characters`,
+    })
+    .refine((value) => !HTML_TAG_PATTERN.test(value), {
+      message: 'Review text must not contain HTML tags',
+    }),
 });
 
 const moderateReviewSchema = z.object({
