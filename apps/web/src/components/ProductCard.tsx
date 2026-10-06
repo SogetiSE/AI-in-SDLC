@@ -9,12 +9,24 @@ interface ProductCardProps {
   price: number;
   imageUrl: string;
   category: string;
+  stock: number;
   averageRating?: number;
   reviewCount?: number;
   onAddToCart?: () => void;
 }
 
-export function ProductCard({ id, name, description, price, imageUrl, category, averageRating, reviewCount, onAddToCart }: ProductCardProps) {
+export function ProductCard({
+  id,
+  name,
+  description,
+  price,
+  imageUrl,
+  category,
+  stock,
+  averageRating,
+  reviewCount,
+  onAddToCart,
+}: ProductCardProps): JSX.Element {
   return (
     <div className="product-card">
       <div className="product-card__media">
@@ -23,7 +35,7 @@ export function ProductCard({ id, name, description, price, imageUrl, category, 
         </Link>
         <div className="product-card__topline">
           <span className="product-card__category">{category}</span>
-          <span className="product-card__label">Curated</span>
+          <span className="product-card__label">{stock === 0 ? 'Out of stock' : 'Curated'}</span>
         </div>
       </div>
       <div className="product-card__body">
@@ -39,7 +51,7 @@ export function ProductCard({ id, name, description, price, imageUrl, category, 
         <p className="product-card__price">{formatPrice(price)}</p>
       </div>
       <div className="product-card__actions">
-        <button className="btn btn--primary btn--full" onClick={onAddToCart}>
+        <button className="btn btn--primary btn--full" disabled={stock === 0} onClick={onAddToCart}>
           Add to Cart
         </button>
       </div>

@@ -4,6 +4,7 @@ import { productsRouter } from './routes/products.js';
 import { cartRouter } from './routes/cart.js';
 import { authRouter } from './routes/auth.js';
 import { reviewsRouter, adminReviewsRouter } from './routes/reviews.js';
+import { wishlistRouter } from './routes/wishlist.js';
 import { errorHandler } from './middleware/error.js';
 
 export const app = express();
@@ -146,6 +147,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/admin/reviews', adminReviewsRouter);
+app.use('/api/wishlist', wishlistRouter);
 
 // Error handling
 app.use(errorHandler);

@@ -10,3 +10,6 @@ coverage
 .DS_Store
 Thumbs.db
 *.log
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+.copilot-tracking

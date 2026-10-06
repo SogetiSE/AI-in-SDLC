@@ -99,6 +99,7 @@ export function HomePage() {
                 price={product.price}
                 imageUrl={product.imageUrl}
                 category={product.category}
+                stock={product.stock}
                 averageRating={product.rating?.averageRating}
                 reviewCount={product.rating?.reviewCount}
                 onAddToCart={() => {

@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ProductCard } from './ProductCard';
 
 const product = {
@@ -13,10 +13,10 @@ const product = {
   stock: 10,
 };
 
-function renderCard() {
+function renderCard(stock = product.stock, onAddToCart?: () => void) {
   return render(
     <BrowserRouter>
-      <ProductCard {...product} />
+      <ProductCard {...product} stock={stock} onAddToCart={onAddToCart} />
     </BrowserRouter>,
   );
 }
@@ -46,5 +46,27 @@ describe('ProductCard', () => {
   it('shows Add to Cart button', () => {
     renderCard();
     expect(screen.getByText('Add to Cart')).toBeDefined();
+  });
+
+  it('shows Out of stock and prevents adding a zero-stock product to the cart', () => {
+    const onAddToCart = vi.fn();
+    renderCard(0, onAddToCart);
+
+    expect(screen.getByText('Out of stock')).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Add to Cart' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onAddToCart).not.toHaveBeenCalled();
+  });
+
+  it('allows adding an in-stock product to the cart without an Out of stock label', () => {
+    const onAddToCart = vi.fn();
+    renderCard(1, onAddToCart);
+
+    expect(screen.queryByText('Out of stock')).not.toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Add to Cart' });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(onAddToCart).toHaveBeenCalledOnce();
   });
 });
