@@ -1,7 +1,7 @@
 ---
-name: "Product Search"
-about: "Seeded feature issue for the Plan and Cloud demos"
-title: "Add product search"
+name: 'Product Search'
+about: 'Seeded feature issue for the Plan and Cloud demos'
+title: 'Add product search'
 labels:
   - demo
   - feature

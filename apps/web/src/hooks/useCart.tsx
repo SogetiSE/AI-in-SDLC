@@ -69,7 +69,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [demoUserName, setDemoUserName] = useState<string | null>(() => getStoredUser()?.name ?? null);
+  const [demoUserName, setDemoUserName] = useState<string | null>(
+    () => getStoredUser()?.name ?? null,
+  );
 
   const fetchCart = useCallback(async () => {
     setLoading(true);

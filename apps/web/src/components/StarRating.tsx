@@ -7,7 +7,11 @@ interface StarRatingProps {
 function StarIcon({ filled, half }: { filled: boolean; half?: boolean }) {
   if (half) {
     return (
-      <svg className="star-rating__star star-rating__star--half" viewBox="0 0 24 24" aria-hidden="true">
+      <svg
+        className="star-rating__star star-rating__star--half"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
         <defs>
           <linearGradient id="halfGrad">
             <stop offset="50%" stopColor="currentColor" />
@@ -24,7 +28,11 @@ function StarIcon({ filled, half }: { filled: boolean; half?: boolean }) {
     );
   }
   return (
-    <svg className={`star-rating__star ${filled ? 'star-rating__star--filled' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className={`star-rating__star ${filled ? 'star-rating__star--filled' : ''}`}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <path
         fill={filled ? 'currentColor' : 'none'}
         stroke="currentColor"
@@ -48,7 +56,10 @@ export function StarRating({ rating, count, size = 'sm' }: StarRatingProps) {
   }
 
   return (
-    <span className={`star-rating star-rating--${size}`} aria-label={`${rating.toFixed(1)} out of 5 stars`}>
+    <span
+      className={`star-rating star-rating--${size}`}
+      aria-label={`${rating.toFixed(1)} out of 5 stars`}
+    >
       {stars}
       {count !== undefined && <span className="star-rating__count">({count})</span>}
     </span>

@@ -4,9 +4,9 @@ description: >
   Use to get a thorough review before merging a PR or committing code. For a dedicated
   security review, hand off to the SE Security Reviewer agent.
 handoffs:
-  - label: "🔒 Security check"
+  - label: '🔒 Security check'
     agent: se-security-reviewer
-    prompt: "Security-review the code we just added."
+    prompt: 'Security-review the code we just added.'
     send: false
 ---
 

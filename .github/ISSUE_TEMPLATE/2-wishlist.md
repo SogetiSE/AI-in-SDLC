@@ -1,7 +1,7 @@
 ---
-name: "Wishlist"
-about: "Seeded feature issue for the local Plan to Cloud handoff demo"
-title: "Add wishlist feature"
+name: 'Wishlist'
+about: 'Seeded feature issue for the local Plan to Cloud handoff demo'
+title: 'Add wishlist feature'
 labels:
   - demo
   - feature

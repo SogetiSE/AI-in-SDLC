@@ -8,18 +8,18 @@ Hooks + Subagents). Copy this file into your fork and apply the changes below.
 Demo 3a already shows the TDD orchestrator (`tdd.agent.md`) delegating to Red/Green/Refactor
 subagents using **free-text handoffs** — prose in the workflow that tells the model when to
 delegate. This enhancement adds a contrasting mechanism: the **`handoffs:` attribute**, which
-renders explicit, user-clickable buttons for moving between agents. Together they teach *when
-to let the model decide* vs. *when to give the user an explicit, repeatable branch point*.
+renders explicit, user-clickable buttons for moving between agents. Together they teach _when
+to let the model decide_ vs. _when to give the user an explicit, repeatable branch point_.
 
 ## Two ways to hand off
 
-| | Free-text handoff | `handoffs:` attribute |
-|---|---|---|
-| Interpreted by | The model | The harness |
-| Determinism | Model decides whether/when | Fixed prompt + target |
-| User-visible | No (internal reasoning) | Yes (clickable buttons) |
-| Appears | During the model's flow | After a response completes |
-| Best for | Adaptive delegation ("loop until criteria met") | Discrete user choices, repeatable/auditable routing |
+|                | Free-text handoff                               | `handoffs:` attribute                               |
+| -------------- | ----------------------------------------------- | --------------------------------------------------- |
+| Interpreted by | The model                                       | The harness                                         |
+| Determinism    | Model decides whether/when                      | Fixed prompt + target                               |
+| User-visible   | No (internal reasoning)                         | Yes (clickable buttons)                             |
+| Appears        | During the model's flow                         | After a response completes                          |
+| Best for       | Adaptive delegation ("loop until criteria met") | Discrete user choices, repeatable/auditable routing |
 
 **Rule of thumb:** free-text when the model should judge the flow; the attribute when a human
 should pick the next step or you need the routing to be repeatable and auditable. They compose —
@@ -29,13 +29,13 @@ the same agent can use both.
 
 Declared in the agent file's frontmatter as a list. Each entry supports:
 
-| Field | Role |
-|-------|------|
-| `label` | Button display text / emoji |
-| `agent` | Target agent to switch to |
-| `prompt` | Text sent to that agent (fixed, not paraphrased) |
-| `send` | `true` = auto-submit; `false` (default) = pre-fill and wait for user confirmation |
-| `model` | *(optional)* language model for the handoff |
+| Field    | Role                                                                              |
+| -------- | --------------------------------------------------------------------------------- |
+| `label`  | Button display text / emoji                                                       |
+| `agent`  | Target agent to switch to                                                         |
+| `prompt` | Text sent to that agent (fixed, not paraphrased)                                  |
+| `send`   | `true` = auto-submit; `false` (default) = pre-fill and wait for user confirmation |
+| `model`  | _(optional)_ language model for the handoff                                       |
 
 Runtime behavior (per the VS Code Copilot docs):
 
@@ -45,7 +45,7 @@ Runtime behavior (per the VS Code Copilot docs):
 - To offer more than one follow-up step, **chain** handoffs: agent A hands off to B, and B's own
   file declares a handoff to C. This is the intended way to build guided, multi-step workflows.
 
-> ⚠️ The docs don't *explicitly* state the old buttons disappear after a transition — it's
+> ⚠️ The docs don't _explicitly_ state the old buttons disappear after a transition — it's
 > inferred from the transition-based design. Confirm in VS Code before relying on it live, and
 > verify your Copilot version actually renders `handoffs:` chips (it's a relatively new field).
 > Fallback if chips don't render: show the YAML side-by-side with the prose and make the point
@@ -55,41 +55,41 @@ Runtime behavior (per the VS Code Copilot docs):
 
 ### 1. `.github/agents/tdd.agent.md` — add `handoffs:` to the frontmatter
 
-Add the block below alongside the existing `agents:` list. These buttons surface *after* the
+Add the block below alongside the existing `agents:` list. These buttons surface _after_ the
 Red → Green → Refactor cycle completes.
 
 ```yaml
 handoffs:
-  - label: "🔁 Next criterion"
+  - label: '🔁 Next criterion'
     agent: tdd
-    prompt: "Continue with the next acceptance criterion."
+    prompt: 'Continue with the next acceptance criterion.'
     send: true
-  - label: "🔍 Review"
+  - label: '🔍 Review'
     agent: reviewer
-    prompt: "Review the code just produced by the TDD cycle."
+    prompt: 'Review the code just produced by the TDD cycle.'
     send: true
-  - label: "🔒 Security check"
+  - label: '🔒 Security check'
     agent: se-security-reviewer
-    prompt: "Security-review the code we just added."
+    prompt: 'Security-review the code we just added.'
     send: false
 ```
 
 The contrast is the point: the body's prose ("Hand off to the Red agent…") is model-driven
-delegation *inside* the cycle; these chips are harness-rendered buttons at the point where a
-human chooses what happens *next*. `send: false` on the security chip demos the
+delegation _inside_ the cycle; these chips are harness-rendered buttons at the point where a
+human chooses what happens _next_. `send: false` on the security chip demos the
 confirm-before-dispatch behavior.
 
 ### 2. `.github/agents/reviewer.agent.md` — chain onward to security + drop overlapping scope
 
 Add a handoff so `reviewer` chains into the dedicated security agent. Handoffs live in the
-frontmatter and only render a button *after* the response completes — they do **not** change the
+frontmatter and only render a button _after_ the response completes — they do **not** change the
 reviewer's output (it still produces its numbered findings + verdict).
 
 ```yaml
 handoffs:
-  - label: "🔒 Security check"
+  - label: '🔒 Security check'
     agent: se-security-reviewer
-    prompt: "Security-review the code we just added."
+    prompt: 'Security-review the code we just added.'
     send: false
 ```
 

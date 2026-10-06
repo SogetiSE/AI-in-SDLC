@@ -63,7 +63,10 @@ const SECRET_PATTERNS = [
   { name: 'Anthropic API key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/ },
   { name: 'OpenAI API key', re: /\bsk-(?:proj-)?[A-Za-z0-9]{20,}\b/ },
   { name: 'Private key block', re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/ },
-  { name: 'JSON Web Token', re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
+  {
+    name: 'JSON Web Token',
+    re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+  },
 ];
 
 // Generic `secret = "<value>"` assignments with a long, non-placeholder value.
@@ -71,7 +74,8 @@ const GENERIC_ASSIGNMENT =
   /(?:api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key|client[_-]?secret)\s*[:=]\s*['"]([^'"\n]{16,})['"]/i;
 
 // Values that are obviously placeholders / documented dev defaults — never block these.
-const PLACEHOLDER = /^(?:zava-dev-secret|changeme|change-me|your[-_].*|<.*>|x{3,}|placeholder|example|todo|secret|password|test|dummy|fake|\$\{?[A-Z_]+\}?|process\.env\.)/i;
+const PLACEHOLDER =
+  /^(?:zava-dev-secret|changeme|change-me|your[-_].*|<.*>|x{3,}|placeholder|example|todo|secret|password|test|dummy|fake|\$\{?[A-Z_]+\}?|process\.env\.)/i;
 
 const input = await readStdin();
 
@@ -87,9 +91,10 @@ const toolInput = payload.tool_input ?? payload.toolInput ?? {};
 const targetPath = findPath(toolInput);
 
 // Don't scan example/sample/template/fixture files — they intentionally carry fake values.
-const isExampleFile = /(\.example|\.sample|\.template|\.dist)$|(?:^|[\\/])(?:fixtures?|__fixtures__|examples?)[\\/]/i.test(
-  targetPath,
-);
+const isExampleFile =
+  /(\.example|\.sample|\.template|\.dist)$|(?:^|[\\/])(?:fixtures?|__fixtures__|examples?)[\\/]/i.test(
+    targetPath,
+  );
 
 const haystack = collectStrings(toolInput, []).join('\n');
 

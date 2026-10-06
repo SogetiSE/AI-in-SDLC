@@ -1,35 +1,35 @@
 {
   "$schema": "https://github.com/features/copilot/schemas/hooks.json",
   "hooks": {
-    "PreToolUse": [
-      {
-        "type": "command",
-        "command": "node ./scripts/hook-pre-tool-use.mjs",
-        "windows": "node .\\scripts\\hook-pre-tool-use.mjs",
-        "timeout": 15
-      },
-      {
-        "type": "command",
-        "command": "node ./scripts/hook-secret-scan.mjs",
-        "windows": "node .\\scripts\\hook-secret-scan.mjs",
-        "timeout": 15
-      }
-    ],
-    "PostToolUse": [
-      {
-        "type": "command",
-        "command": "node ./scripts/hook-post-tool-use.mjs",
-        "windows": "node .\\scripts\\hook-post-tool-use.mjs",
-        "timeout": 30
-      }
-    ],
-    "Stop": [
-      {
-        "type": "command",
-        "command": "node ./scripts/hook-stop.mjs",
-        "windows": "node .\\scripts\\hook-stop.mjs",
-        "timeout": 120
-      }
-    ]
+    // "PreToolUse": [
+    //   {
+    //     "type": "command",
+    //     "command": "node ./scripts/hook-pre-tool-use.mjs",
+    //     "windows": "node .\\scripts\\hook-pre-tool-use.mjs",
+    //     "timeout": 15
+    //   },
+    //   {
+    //     "type": "command",
+    //     "command": "node ./scripts/hook-secret-scan.mjs",
+    //     "windows": "node .\\scripts\\hook-secret-scan.mjs",
+    //     "timeout": 15
+    //   }
+    // ],
+    // "PostToolUse": [
+    //   {
+    //     "type": "command",
+    //     "command": "node ./scripts/hook-post-tool-use.mjs",
+    //     "windows": "node .\\scripts\\hook-post-tool-use.mjs",
+    //     "timeout": 30
+    //   }
+    // ],
+    // "Stop": [
+    //   {
+    //     "type": "command",
+    //     "command": "node ./scripts/hook-stop.mjs",
+    //     "windows": "node .\\scripts\\hook-stop.mjs",
+    //     "timeout": 120
+    //   }
+    // ]
   }
 }

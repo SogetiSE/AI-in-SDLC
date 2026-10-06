@@ -18,41 +18,50 @@ const moderateReviewSchema = z.object({
 });
 
 // POST /api/reviews — submit a review (authenticated customers)
-reviewsRouter.post('/', authenticate, validate(createReviewSchema), async (req: AuthenticatedRequest, res: Response) => {
-  const { productId, rating, text } = req.body;
-  const userId = req.userId!;
+reviewsRouter.post(
+  '/',
+  authenticate,
+  validate(createReviewSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { productId, rating, text } = req.body;
+    const userId = req.userId!;
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) {
-    res.status(404).json({ message: 'Product not found', code: 'NOT_FOUND', statusCode: 404 });
-    return;
-  }
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      res.status(404).json({ message: 'Product not found', code: 'NOT_FOUND', statusCode: 404 });
+      return;
+    }
 
-  const existing = await prisma.review.findUnique({
-    where: { productId_userId: { productId, userId } },
-  });
-  if (existing) {
-    res.status(409).json({ message: 'You have already reviewed this product', code: 'CONFLICT', statusCode: 409 });
-    return;
-  }
+    const existing = await prisma.review.findUnique({
+      where: { productId_userId: { productId, userId } },
+    });
+    if (existing) {
+      res.status(409).json({
+        message: 'You have already reviewed this product',
+        code: 'CONFLICT',
+        statusCode: 409,
+      });
+      return;
+    }
 
-  const review = await prisma.review.create({
-    data: { productId, userId, rating, text },
-    include: { user: { select: { name: true } } },
-  });
+    const review = await prisma.review.create({
+      data: { productId, userId, rating, text },
+      include: { user: { select: { name: true } } },
+    });
 
-  res.status(201).json({
-    id: review.id,
-    productId: review.productId,
-    userId: review.userId,
-    userName: review.user.name,
-    rating: review.rating,
-    text: review.text,
-    status: review.status,
-    createdAt: review.createdAt,
-    updatedAt: review.updatedAt,
-  });
-});
+    res.status(201).json({
+      id: review.id,
+      productId: review.productId,
+      userId: review.userId,
+      userName: review.user.name,
+      rating: review.rating,
+      text: review.text,
+      status: review.status,
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+    });
+  },
+);
 
 // GET /api/reviews/product/:productId — list approved reviews for a product
 reviewsRouter.get('/product/:productId', async (req: AuthenticatedRequest, res: Response) => {
@@ -100,73 +109,84 @@ reviewsRouter.get('/product/:productId', async (req: AuthenticatedRequest, res: 
 });
 
 // GET /api/admin/reviews — list all reviews (admin only)
-adminReviewsRouter.get('/', authenticate, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  const { status } = req.query;
-  const page = Math.max(1, parseInt(req.query.page as string) || 1);
-  const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize as string) || 10));
+adminReviewsRouter.get(
+  '/',
+  authenticate,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { status } = req.query;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize as string) || 10));
 
-  const where = status ? { status: String(status) } : {};
+    const where = status ? { status: String(status) } : {};
 
-  const [reviews, total] = await Promise.all([
-    prisma.review.findMany({
-      where,
-      include: {
-        user: { select: { name: true } },
-        product: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.review.count({ where }),
-  ]);
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          user: { select: { name: true } },
+          product: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.review.count({ where }),
+    ]);
 
-  res.json({
-    data: reviews.map((r) => ({
-      id: r.id,
-      productId: r.productId,
-      productName: r.product.name,
-      userId: r.userId,
-      userName: r.user.name,
-      rating: r.rating,
-      text: r.text,
-      status: r.status,
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    })),
-    total,
-    page,
-    pageSize,
-  });
-});
+    res.json({
+      data: reviews.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        productName: r.product.name,
+        userId: r.userId,
+        userName: r.user.name,
+        rating: r.rating,
+        text: r.text,
+        status: r.status,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+      total,
+      page,
+      pageSize,
+    });
+  },
+);
 
 // PATCH /api/admin/reviews/:id — moderate a review (admin only)
-adminReviewsRouter.patch('/:id', authenticate, requireAdmin, validate(moderateReviewSchema), async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const { status } = req.body;
+adminReviewsRouter.patch(
+  '/:id',
+  authenticate,
+  requireAdmin,
+  validate(moderateReviewSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
 
-  const review = await prisma.review.findUnique({ where: { id } });
-  if (!review) {
-    res.status(404).json({ message: 'Review not found', code: 'NOT_FOUND', statusCode: 404 });
-    return;
-  }
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      res.status(404).json({ message: 'Review not found', code: 'NOT_FOUND', statusCode: 404 });
+      return;
+    }
 
-  const updated = await prisma.review.update({
-    where: { id },
-    data: { status },
-    include: { user: { select: { name: true } }, product: { select: { name: true } } },
-  });
+    const updated = await prisma.review.update({
+      where: { id },
+      data: { status },
+      include: { user: { select: { name: true } }, product: { select: { name: true } } },
+    });
 
-  res.json({
-    id: updated.id,
-    productId: updated.productId,
-    productName: updated.product.name,
-    userId: updated.userId,
-    userName: updated.user.name,
-    rating: updated.rating,
-    text: updated.text,
-    status: updated.status,
-    createdAt: updated.createdAt,
-    updatedAt: updated.updatedAt,
-  });
-});
+    res.json({
+      id: updated.id,
+      productId: updated.productId,
+      productName: updated.product.name,
+      userId: updated.userId,
+      userName: updated.user.name,
+      rating: updated.rating,
+      text: updated.text,
+      status: updated.status,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    });
+  },
+);

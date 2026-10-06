@@ -12,13 +12,13 @@ apps/web          — React SPA with Vite (@zava/web)
 
 ## Tech Stack
 
-| Layer     | Technology                              |
-| --------- | --------------------------------------- |
-| Frontend  | React 18, React Router, Vite           |
-| Backend   | Express, Prisma, SQLite                 |
-| Language  | TypeScript (strict mode)                |
-| Testing   | Vitest, React Testing Library, Supertest|
-| Tooling   | npm workspaces, Prettier                |
+| Layer    | Technology                               |
+| -------- | ---------------------------------------- |
+| Frontend | React 18, React Router, Vite             |
+| Backend  | Express, Prisma, SQLite                  |
+| Language | TypeScript (strict mode)                 |
+| Testing  | Vitest, React Testing Library, Supertest |
+| Tooling  | npm workspaces, Prettier                 |
 
 ## Getting Started
 
@@ -113,6 +113,7 @@ The repo includes infrastructure-as-code for Azure Container Apps:
 ```
 
 This creates:
+
 - **Container Apps Environment** with API (internal) and Web (external) apps
 - **PostgreSQL Flexible Server** (Burstable B1ms)
 - **Entra ID app** with federated credentials for GitHub Actions OIDC (no stored secrets)

@@ -3,7 +3,6 @@ import { prisma } from '../models/prisma.js';
 
 export const productsRouter = Router();
 
-
 // GET /api/products — list all products
 productsRouter.get('/', async (req: Request, res: Response) => {
   const { category } = req.query;
@@ -21,7 +20,12 @@ productsRouter.get('/', async (req: Request, res: Response) => {
     _count: { rating: true },
   });
 
-  const ratingMap = new Map(ratings.map((r) => [r.productId, { averageRating: r._avg.rating ?? 0, reviewCount: r._count.rating }]));
+  const ratingMap = new Map(
+    ratings.map((r) => [
+      r.productId,
+      { averageRating: r._avg.rating ?? 0, reviewCount: r._count.rating },
+    ]),
+  );
 
   const data = products.map((p) => ({
     ...p,
@@ -59,7 +63,10 @@ productsRouter.get('/:id', async (req: Request, res: Response) => {
 
 // GET /api/products/categories — list unique categories
 productsRouter.get('/categories/list', async (_req: Request, res: Response) => {
-  const products = await prisma.product.findMany({ select: { category: true }, distinct: ['category'] });
+  const products = await prisma.product.findMany({
+    select: { category: true },
+    distinct: ['category'],
+  });
   const categories = products.map((p) => p.category);
   res.json({ data: categories });
 });

@@ -1,5 +1,5 @@
 ---
-applyTo: "apps/api/**"
+applyTo: 'apps/api/**'
 ---
 
 # Zava API — Copilot Instructions

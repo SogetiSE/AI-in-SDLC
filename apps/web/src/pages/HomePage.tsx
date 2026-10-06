@@ -7,7 +7,9 @@ import { api } from '../services/apiClient';
 export function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [categories, setCategories] = useState<string[]>([]);
-  const deferredCategory = useDeferredValue(selectedCategory === 'All' ? undefined : selectedCategory);
+  const deferredCategory = useDeferredValue(
+    selectedCategory === 'All' ? undefined : selectedCategory,
+  );
   const { products, loading, error } = useProducts(deferredCategory);
   const { addItem, error: cartError } = useCart();
 
@@ -47,17 +49,24 @@ export function HomePage() {
           <span className="hero-panel__eyebrow">New Season Collection</span>
           <h1 className="hero-panel__title">Elevate every cup, every ritual, every day.</h1>
           <p className="hero-panel__copy">
-            Discover our curated selection of specialty coffee, precision brewing gear, and lifestyle accessories designed for those who appreciate the finer details.
+            Discover our curated selection of specialty coffee, precision brewing gear, and
+            lifestyle accessories designed for those who appreciate the finer details.
           </p>
         </div>
         <div className="hero-panel__aside">
           <div className="hero-note">
             <span className="hero-note__label">Collections</span>
-            <p>From single-origin espresso blends to handcrafted brewing equipment and everyday carry essentials.</p>
+            <p>
+              From single-origin espresso blends to handcrafted brewing equipment and everyday carry
+              essentials.
+            </p>
           </div>
           <div className="hero-note">
             <span className="hero-note__label">Free Shipping</span>
-            <p>Complimentary shipping on all orders over $75. Crafted with care, delivered to your door.</p>
+            <p>
+              Complimentary shipping on all orders over $75. Crafted with care, delivered to your
+              door.
+            </p>
           </div>
         </div>
       </section>
@@ -66,7 +75,9 @@ export function HomePage() {
         <div className="catalog-shell__header">
           <div>
             <h2 className="page-title">Curated Collections</h2>
-            <p className="catalog-shell__copy">Browse by category to find exactly what you're looking for.</p>
+            <p className="catalog-shell__copy">
+              Browse by category to find exactly what you're looking for.
+            </p>
           </div>
           <div className="category-filter" role="tablist" aria-label="Filter products by category">
             {categoryOptions.map((category) => (
@@ -99,6 +110,7 @@ export function HomePage() {
                 price={product.price}
                 imageUrl={product.imageUrl}
                 category={product.category}
+                stock={product.stock}
                 averageRating={product.rating?.averageRating}
                 reviewCount={product.rating?.reviewCount}
                 onAddToCart={() => {
@@ -109,7 +121,9 @@ export function HomePage() {
           </div>
         ) : null}
 
-        {!loading && !error && products.length === 0 ? <div className="empty-state">No products available.</div> : null}
+        {!loading && !error && products.length === 0 ? (
+          <div className="empty-state">No products available.</div>
+        ) : null}
       </section>
     </>
   );

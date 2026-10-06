@@ -126,7 +126,7 @@ Show `.github/agents/tdd.agent.md` and explain the Red → Green → Refactor or
 Show `.github/hooks/quality.json` and explain the four hooks:
 
 - `PostToolUse`: runs Prettier after file edits
-- `PostToolUse`: Make sure we not check in secrets 
+- `PostToolUse`: Make sure we not check in secrets
 - `PreToolUse`: blocks dangerous terminal commands (rm -)
 - `Stop`: prevents the agent from finishing before tests pass
 
@@ -135,7 +135,7 @@ Show `.github/hooks/quality.json` and explain the four hooks:
 1. Trigger a normal edit so the formatting hook runs.
 2. Try a clearly dangerous terminal command to show the block.
 3. Ask the agent to hard-code the JWT secret in `apps/api/src/middleware/auth.ts` so logins work — the secret scanner denies the edit and the agent pivots to `process.env.JWT_SECRET`.
-> Add this x40wvWZGyIlpjYbVbDSfSHB8nCCTKyul jwt signing key to the settings hardcoded
+   > Add this x40wvWZGyIlpjYbVbDSfSHB8nCCTKyul jwt signing key to the settings hardcoded
 4. Let the session hit the Stop hook and continue until tests pass.
 
 **Talking point**
@@ -163,7 +163,7 @@ Rule of thumb: **free-text when the model should judge the flow; the attribute w
 
 **Prompt 1** _(Ask agent)_ (Skill )
 
-> How does the cart system work? Walk me through the data flow from add-to-cart click to API persistence. 
+> How does the cart system work? Walk me through the data flow from add-to-cart click to API persistence.
 
 **Prompt 2** _(`SE: Security` custom agent)_
 
@@ -200,7 +200,9 @@ You need **two terminal windows** (split panes in VS Code) plus an optional thir
    git worktree add ../zava-admin-panel -b demo/admin-panel
    git worktree add ../zava-email-notify -b demo/email-notify
    ```
-fp
+
+   fp
+
 2. **Open two terminal panes** side by side (split-terminal button or ⌘\\).
 
 3. **In Terminal 1**, cd into the first worktree and launch Copilot CLI in programmatic mode with `--yolo` (auto-approve all tools for the demo):

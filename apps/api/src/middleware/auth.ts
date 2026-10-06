@@ -14,10 +14,16 @@ export interface AuthenticatedRequest extends Request {
   userRole?: string;
 }
 
-export async function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+export async function authenticate(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ message: 'Missing or invalid authorization header', code: 'UNAUTHORIZED', statusCode: 401 });
+    res
+      .status(401)
+      .json({ error: 'Unauthorized', message: 'Missing or invalid authorization header' });
     return;
   }
 
@@ -30,7 +36,7 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     });
 
     if (!user) {
-      res.status(401).json({ message: 'Invalid or expired token', code: 'UNAUTHORIZED', statusCode: 401 });
+      res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
       return;
     }
 
@@ -38,7 +44,7 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     req.userRole = user.role;
     next();
   } catch {
-    res.status(401).json({ message: 'Invalid or expired token', code: 'UNAUTHORIZED', statusCode: 401 });
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
   }
 }
 

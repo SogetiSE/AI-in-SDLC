@@ -21,6 +21,7 @@ playwright-cli -s=public snapshot
 ## Browser Session Isolation Properties
 
 Each browser session has independent:
+
 - Cookies
 - LocalStorage / SessionStorage
 - IndexedDB
@@ -48,6 +49,8 @@ playwright-cli kill-all
 playwright-cli delete-data                # delete default browser data
 playwright-cli -s=mysession delete-data   # delete named browser data
 ```
+
+A headless session shuts down on its own after an hour without commands; the next command then reports that the browser is not open, so run `open` again. Headed browsers stay open. Use `open --idle-timeout=<ms>` to change the timeout, or `0` to disable it.
 
 ## Environment Variable
 
@@ -129,6 +132,8 @@ playwright-cli attach --cdp=msedge-dev
 
 Supported channels: `chrome`, `chrome-beta`, `chrome-dev`, `chrome-canary`, `msedge`, `msedge-beta`, `msedge-dev`, `msedge-canary`.
 
+When `--session` is not provided, the session is named after the channel (e.g. `--cdp=msedge` creates a session called `msedge`), so parallel attaches to Chrome and Edge don't collide on `default`. Pass `--session=<name>` to override.
+
 ### Attach via CDP endpoint
 
 Connect to a browser that exposes a Chrome DevTools Protocol endpoint:
@@ -144,6 +149,20 @@ Connect to a browser with the Playwright extension installed:
 ```bash
 playwright-cli attach --extension
 ```
+
+### Detach
+
+Tear down an attached session without affecting the external browser:
+
+```bash
+# Detach the default attached session
+playwright-cli detach
+
+# Detach a specific attached session
+playwright-cli -s=msedge detach
+```
+
+`detach` only works on sessions created via `attach`. For sessions created via `open`, use `close`.
 
 ## Default Browser Session
 

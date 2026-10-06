@@ -29,7 +29,10 @@ export function ProductPage() {
 
   useEffect(() => {
     if (!id) return;
-    api.getProduct(id).then(setProduct).finally(() => setLoading(false));
+    api
+      .getProduct(id)
+      .then(setProduct)
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -47,7 +50,9 @@ export function ProductPage() {
           <h1 className="page-title product-detail__title">{product.name}</h1>
           <p className="product-card__price product-detail__price">{formatPrice(product.price)}</p>
           <p className="product-detail__description">{product.description}</p>
-          <p className="product-detail__stock">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+          <p className="product-detail__stock">
+            {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+          </p>
           <button
             className="btn btn--primary"
             disabled={product.stock === 0}

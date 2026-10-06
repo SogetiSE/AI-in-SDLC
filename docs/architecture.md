@@ -46,26 +46,29 @@ zava-storefront/
 ## Data model
 
 ### User
-| Field        | Type     | Notes             |
-|-------------|----------|-------------------|
-| id          | String   | CUID              |
-| email       | String   | Unique            |
-| name        | String   |                   |
-| password    | String   | bcrypt hashed     |
-| role        | Enum     | CUSTOMER / ADMIN  |
+
+| Field    | Type   | Notes            |
+| -------- | ------ | ---------------- |
+| id       | String | CUID             |
+| email    | String | Unique           |
+| name     | String |                  |
+| password | String | bcrypt hashed    |
+| role     | Enum   | CUSTOMER / ADMIN |
 
 ### Product
-| Field       | Type     | Notes             |
-|------------|----------|-------------------|
-| id         | String   | CUID              |
-| name       | String   |                   |
-| description| String   |                   |
-| price      | Int      | Cents (1899=$18.99)|
-| imageUrl   | String   |                   |
-| category   | String   |                   |
-| stock      | Int      |                   |
+
+| Field       | Type   | Notes               |
+| ----------- | ------ | ------------------- |
+| id          | String | CUID                |
+| name        | String |                     |
+| description | String |                     |
+| price       | Int    | Cents (1899=$18.99) |
+| imageUrl    | String |                     |
+| category    | String |                     |
+| stock       | Int    |                     |
 
 ### Cart / CartItem
+
 - One Cart per User (1:1).
 - CartItem links Cart ↔ Product with a quantity field.
 

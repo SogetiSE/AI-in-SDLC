@@ -21,7 +21,10 @@ function collectFiles(toolName, toolInput) {
 
   const files = new Set();
 
-  if (typeof process.env.TOOL_INPUT_FILE_PATH === 'string' && process.env.TOOL_INPUT_FILE_PATH.length > 0) {
+  if (
+    typeof process.env.TOOL_INPUT_FILE_PATH === 'string' &&
+    process.env.TOOL_INPUT_FILE_PATH.length > 0
+  ) {
     files.add(process.env.TOOL_INPUT_FILE_PATH);
   }
 
