@@ -7,17 +7,17 @@ agents:
   - green
   - refactor
 handoffs:
-  - label: "🔁 Next criterion"
+  - label: '🔁 Next criterion'
     agent: tdd
-    prompt: "Continue with the next acceptance criterion."
+    prompt: 'Continue with the next acceptance criterion.'
     send: true
-  - label: "🔍 Review"
+  - label: '🔍 Review'
     agent: reviewer
-    prompt: "Review the code just produced by the TDD cycle."
+    prompt: 'Review the code just produced by the TDD cycle.'
     send: true
-  - label: "🔒 Security check"
+  - label: '🔒 Security check'
     agent: se-security-reviewer
-    prompt: "Security-review the code we just added."
+    prompt: 'Security-review the code we just added.'
     send: false
 ---
 

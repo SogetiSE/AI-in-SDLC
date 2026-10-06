@@ -51,7 +51,8 @@ export function ReviewList({ productId, refreshKey }: ReviewListProps) {
         <div className="review-list__summary">
           <StarRating rating={aggregate.averageRating} size="md" />
           <span className="review-list__summary-text">
-            {aggregate.averageRating.toFixed(1)} out of 5 ({aggregate.reviewCount} review{aggregate.reviewCount !== 1 ? 's' : ''})
+            {aggregate.averageRating.toFixed(1)} out of 5 ({aggregate.reviewCount} review
+            {aggregate.reviewCount !== 1 ? 's' : ''})
           </span>
         </div>
       )}
@@ -76,9 +77,18 @@ export function ReviewList({ productId, refreshKey }: ReviewListProps) {
           </ul>
           {total > pageSize && (
             <div className="review-list__pagination">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-              <span>Page {page} of {Math.ceil(total / pageSize)}</span>
-              <button disabled={page >= Math.ceil(total / pageSize)} onClick={() => setPage((p) => p + 1)}>Next</button>
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </button>
+              <span>
+                Page {page} of {Math.ceil(total / pageSize)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(total / pageSize)}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
             </div>
           )}
         </>

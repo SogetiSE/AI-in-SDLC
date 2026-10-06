@@ -69,7 +69,12 @@ wishlistRouter.get('/', async (req: AuthenticatedRequest, res: Response): Promis
 wishlistRouter.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const parsed = addWishlistSchema.safeParse(req.body);
   if (!parsed.success) {
-    sendError(res, WISHLIST_HTTP_STATUS.error.badRequest, 'Bad Request', 'Invalid wishlist request');
+    sendError(
+      res,
+      WISHLIST_HTTP_STATUS.error.badRequest,
+      'Bad Request',
+      'Invalid wishlist request',
+    );
     return;
   }
 
@@ -77,7 +82,10 @@ wishlistRouter.post('/', async (req: AuthenticatedRequest, res: Response): Promi
   const { productId } = parsed.data;
 
   try {
-    const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
     if (!product) {
       sendError(res, WISHLIST_HTTP_STATUS.error.notFound, 'Not Found', 'Product not found');
       return;
@@ -127,36 +135,39 @@ wishlistRouter.post('/', async (req: AuthenticatedRequest, res: Response): Promi
   }
 });
 
-wishlistRouter.delete('/:productId', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const parsedProductId = z.string().min(1).safeParse(req.params.productId);
-  if (!parsedProductId.success) {
-    sendError(res, WISHLIST_HTTP_STATUS.error.badRequest, 'Bad Request', 'Invalid product ID');
-    return;
-  }
-
-  try {
-    await prisma.wishlist.delete({
-      where: {
-        userId_productId: { userId: req.userId!, productId: parsedProductId.data },
-      },
-    });
-    res.status(WISHLIST_HTTP_STATUS.delete).send();
-  } catch (error) {
-    if (isKnownRequestError(error, 'P2025') || isKnownRequestError(error, 'P2003')) {
-      sendError(
-        res,
-        WISHLIST_HTTP_STATUS.error.notFound,
-        'Not Found',
-        'Wishlist entry not found',
-      );
+wishlistRouter.delete(
+  '/:productId',
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const parsedProductId = z.string().min(1).safeParse(req.params.productId);
+    if (!parsedProductId.success) {
+      sendError(res, WISHLIST_HTTP_STATUS.error.badRequest, 'Bad Request', 'Invalid product ID');
       return;
     }
 
-    sendError(
-      res,
-      WISHLIST_HTTP_STATUS.error.internalServerError,
-      'Internal Server Error',
-      'Unable to update wishlist',
-    );
-  }
-});
+    try {
+      await prisma.wishlist.delete({
+        where: {
+          userId_productId: { userId: req.userId!, productId: parsedProductId.data },
+        },
+      });
+      res.status(WISHLIST_HTTP_STATUS.delete).send();
+    } catch (error) {
+      if (isKnownRequestError(error, 'P2025') || isKnownRequestError(error, 'P2003')) {
+        sendError(
+          res,
+          WISHLIST_HTTP_STATUS.error.notFound,
+          'Not Found',
+          'Wishlist entry not found',
+        );
+        return;
+      }
+
+      sendError(
+        res,
+        WISHLIST_HTTP_STATUS.error.internalServerError,
+        'Internal Server Error',
+        'Unable to update wishlist',
+      );
+    }
+  },
+);

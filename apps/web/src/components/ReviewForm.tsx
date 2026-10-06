@@ -54,7 +54,9 @@ export function ReviewForm({ productId, onSubmitted }: ReviewFormProps) {
         <StarRatingInput value={rating} onChange={setRating} />
       </div>
       <div className="review-form__field">
-        <label className="review-form__label" htmlFor="review-text">Your review</label>
+        <label className="review-form__label" htmlFor="review-text">
+          Your review
+        </label>
         <textarea
           id="review-text"
           className="review-form__textarea"

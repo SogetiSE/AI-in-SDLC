@@ -14,10 +14,16 @@ export interface AuthenticatedRequest extends Request {
   userRole?: string;
 }
 
-export async function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+export async function authenticate(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid authorization header' });
+    res
+      .status(401)
+      .json({ error: 'Unauthorized', message: 'Missing or invalid authorization header' });
     return;
   }
 

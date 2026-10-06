@@ -23,7 +23,9 @@ authRouter.post('/register', validate(registerSchema), async (req: Request, res:
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    res.status(409).json({ message: 'Email already registered', code: 'CONFLICT', statusCode: 409 });
+    res
+      .status(409)
+      .json({ message: 'Email already registered', code: 'CONFLICT', statusCode: 409 });
     return;
   }
 
@@ -35,7 +37,13 @@ authRouter.post('/register', validate(registerSchema), async (req: Request, res:
   const token = signToken(user.id, user.role);
   res.status(201).json({
     token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+    },
   });
 });
 
@@ -57,6 +65,12 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
   const token = signToken(user.id, user.role);
   res.json({
     token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+    },
   });
 });

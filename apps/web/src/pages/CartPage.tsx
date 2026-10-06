@@ -18,7 +18,11 @@ export function CartPage() {
       {items.length === 0 ? (
         <div className="empty-state">
           <p>Your cart is empty.</p>
-          <Link to="/" className="btn btn--primary" style={{ marginTop: '1rem', display: 'inline-block' }}>
+          <Link
+            to="/"
+            className="btn btn--primary"
+            style={{ marginTop: '1rem', display: 'inline-block' }}
+          >
             Continue Shopping
           </Link>
         </div>
@@ -58,8 +62,6 @@ export function CartPage() {
             <Link to="/checkout" className="btn btn--primary" style={{ width: '100%' }}>
               Proceed to Checkout
             </Link>
-
-
           </div>
         </>
       )}

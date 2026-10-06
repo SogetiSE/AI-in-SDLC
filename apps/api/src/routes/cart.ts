@@ -33,48 +33,55 @@ cartRouter.get('/', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // POST /api/cart/items — add item to cart
-cartRouter.post('/items', validate(addItemSchema), async (req: AuthenticatedRequest, res: Response) => {
-  const { productId, quantity } = req.body;
+cartRouter.post(
+  '/items',
+  validate(addItemSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { productId, quantity } = req.body;
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) {
-    res.status(404).json({ message: 'Product not found', code: 'NOT_FOUND', statusCode: 404 });
-    return;
-  }
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      res.status(404).json({ message: 'Product not found', code: 'NOT_FOUND', statusCode: 404 });
+      return;
+    }
 
-  if (product.stock < quantity) {
-    res.status(400).json({ message: 'Insufficient stock', code: 'BAD_REQUEST', statusCode: 400 });
-    return;
-  }
+    if (product.stock < quantity) {
+      res.status(400).json({ message: 'Insufficient stock', code: 'BAD_REQUEST', statusCode: 400 });
+      return;
+    }
 
-  let cart = await prisma.cart.findFirst({ where: { userId: req.userId! } });
-  if (!cart) {
-    cart = await prisma.cart.create({ data: { userId: req.userId! } });
-  }
+    let cart = await prisma.cart.findFirst({ where: { userId: req.userId! } });
+    if (!cart) {
+      cart = await prisma.cart.create({ data: { userId: req.userId! } });
+    }
 
-  const existingItem = await prisma.cartItem.findFirst({
-    where: { cartId: cart.id, productId },
-  });
-
-  if (existingItem) {
-    await prisma.cartItem.update({
-      where: { id: existingItem.id },
-      data: { quantity: existingItem.quantity + quantity },
+    const existingItem = await prisma.cartItem.findFirst({
+      where: { cartId: cart.id, productId },
     });
-  } else {
-    await prisma.cartItem.create({
-      data: { cartId: cart.id, productId, quantity },
+
+    if (existingItem) {
+      await prisma.cartItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: existingItem.quantity + quantity },
+      });
+    } else {
+      await prisma.cartItem.create({
+        data: { cartId: cart.id, productId, quantity },
+      });
+    }
+
+    const updatedCart = await prisma.cart.findFirst({
+      where: { id: cart.id },
+      include: { items: { include: { product: true } } },
     });
-  }
 
-  const updatedCart = await prisma.cart.findFirst({
-    where: { id: cart.id },
-    include: { items: { include: { product: true } } },
-  });
-
-  const total = updatedCart!.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  res.json({ ...updatedCart, total });
-});
+    const total = updatedCart!.items.reduce(
+      (sum, item) => sum + item.product.price * item.quantity,
+      0,
+    );
+    res.json({ ...updatedCart, total });
+  },
+);
 
 // DELETE /api/cart/items/:itemId — remove item from cart
 cartRouter.delete('/items/:itemId', async (req: AuthenticatedRequest, res: Response) => {

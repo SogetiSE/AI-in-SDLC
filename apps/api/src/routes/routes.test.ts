@@ -22,9 +22,30 @@ describe('Products API', () => {
     await prisma.product.deleteMany();
     await prisma.product.createMany({
       data: [
-        { name: 'Test Sneakers', description: 'Test shoes', price: 9999, imageUrl: 'https://example.com/shoe.jpg', category: 'Footwear', stock: 10 },
-        { name: 'Test Jacket', description: 'Test jacket', price: 14999, imageUrl: 'https://example.com/jacket.jpg', category: 'Outerwear', stock: 5 },
-        { name: 'Test Hat', description: 'Test hat', price: 2499, imageUrl: 'https://example.com/hat.jpg', category: 'Accessories', stock: 20 },
+        {
+          name: 'Test Sneakers',
+          description: 'Test shoes',
+          price: 9999,
+          imageUrl: 'https://example.com/shoe.jpg',
+          category: 'Footwear',
+          stock: 10,
+        },
+        {
+          name: 'Test Jacket',
+          description: 'Test jacket',
+          price: 14999,
+          imageUrl: 'https://example.com/jacket.jpg',
+          category: 'Outerwear',
+          stock: 5,
+        },
+        {
+          name: 'Test Hat',
+          description: 'Test hat',
+          price: 2499,
+          imageUrl: 'https://example.com/hat.jpg',
+          category: 'Accessories',
+          stock: 20,
+        },
       ],
     });
   });
@@ -334,7 +355,10 @@ describe('Wishlist API', () => {
       .delete(`/api/wishlist/${productId}`)
       .set('Authorization', `Bearer ${otherCustomerToken}`);
     expect(otherUsersDelete.status).toBe(404);
-    expect(otherUsersDelete.body).toEqual({ error: 'Not Found', message: 'Wishlist entry not found' });
+    expect(otherUsersDelete.body).toEqual({
+      error: 'Not Found',
+      message: 'Wishlist entry not found',
+    });
 
     const ownerList = await request(app)
       .get('/api/wishlist')
@@ -362,7 +386,9 @@ describe('Reviews API', () => {
     await prisma.user.create({
       data: { email: 'admin-review@zava.com', password: adminPass, name: 'Admin', role: 'admin' },
     });
-    const adminLogin = await request(app).post('/api/auth/login').send({ email: 'admin-review@zava.com', password: 'Admin123!' });
+    const adminLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin-review@zava.com', password: 'Admin123!' });
     adminToken = adminLogin.body.token;
 
     // Create customer
@@ -375,7 +401,14 @@ describe('Reviews API', () => {
 
     // Create product
     const product = await prisma.product.create({
-      data: { name: 'Review Test Product', description: 'A product for testing reviews', price: 1500, imageUrl: '/img.svg', category: 'Test', stock: 10 },
+      data: {
+        name: 'Review Test Product',
+        description: 'A product for testing reviews',
+        price: 1500,
+        imageUrl: '/img.svg',
+        category: 'Test',
+        stock: 10,
+      },
     });
     productId = product.id;
   });
@@ -385,7 +418,9 @@ describe('Reviews API', () => {
   });
 
   it('POST /api/reviews requires authentication', async () => {
-    const res = await request(app).post('/api/reviews').send({ productId, rating: 5, text: 'Great product for testing' });
+    const res = await request(app)
+      .post('/api/reviews')
+      .send({ productId, rating: 5, text: 'Great product for testing' });
     expect(res.status).toBe(401);
   });
 
@@ -420,7 +455,11 @@ describe('Reviews API', () => {
     const res = await request(app)
       .post('/api/reviews')
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ productId, rating: 3, text: 'Trying to submit a second review for the same product' });
+      .send({
+        productId,
+        rating: 3,
+        text: 'Trying to submit a second review for the same product',
+      });
     expect(res.status).toBe(409);
   });
 
@@ -428,7 +467,11 @@ describe('Reviews API', () => {
     const res = await request(app)
       .post('/api/reviews')
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ productId: 'nonexistent-id', rating: 4, text: 'This product does not exist in the database' });
+      .send({
+        productId: 'nonexistent-id',
+        rating: 4,
+        text: 'This product does not exist in the database',
+      });
     expect(res.status).toBe(404);
   });
 
@@ -440,12 +483,16 @@ describe('Reviews API', () => {
   });
 
   it('GET /api/admin/reviews requires admin role', async () => {
-    const res = await request(app).get('/api/admin/reviews').set('Authorization', `Bearer ${customerToken}`);
+    const res = await request(app)
+      .get('/api/admin/reviews')
+      .set('Authorization', `Bearer ${customerToken}`);
     expect(res.status).toBe(403);
   });
 
   it('GET /api/admin/reviews lists reviews for admin', async () => {
-    const res = await request(app).get('/api/admin/reviews').set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app)
+      .get('/api/admin/reviews')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThan(0);
   });
@@ -478,7 +525,10 @@ describe('Reviews API', () => {
   it('GET /api/products returns products with rating data', async () => {
     const res = await request(app).get('/api/products');
     expect(res.status).toBe(200);
-    const product = res.body.data.find((p: any) => p.id === productId);
+    const product = res.body.data.find(
+      (p: { id: string; rating: { averageRating: number; reviewCount: number } }) =>
+        p.id === productId,
+    );
     expect(product.rating).toBeDefined();
     expect(product.rating.averageRating).toBe(5);
     expect(product.rating.reviewCount).toBe(1);

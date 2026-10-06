@@ -17,10 +17,14 @@ for (const filePath of [testDbPath, `${testDbPath}-journal`]) {
   }
 }
 
-execFileSync(command, ['prisma', 'db', 'push', '--schema', 'prisma/schema.test.prisma', '--skip-generate'], {
-  cwd: apiRoot,
-  stdio: 'inherit',
-});
+execFileSync(
+  command,
+  ['prisma', 'db', 'push', '--schema', 'prisma/schema.test.prisma', '--skip-generate'],
+  {
+    cwd: apiRoot,
+    stdio: 'inherit',
+  },
+);
 
 execFileSync(command, ['vitest', ...vitestArgs], {
   cwd: apiRoot,

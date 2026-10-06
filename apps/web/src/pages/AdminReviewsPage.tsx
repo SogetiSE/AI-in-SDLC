@@ -54,7 +54,10 @@ export function AdminReviewsPage() {
           <button
             key={s}
             className={`category-filter__chip${filter === s ? ' category-filter__chip--active' : ''}`}
-            onClick={() => { setFilter(s); setPage(1); }}
+            onClick={() => {
+              setFilter(s);
+              setPage(1);
+            }}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
@@ -74,17 +77,27 @@ export function AdminReviewsPage() {
                   <strong>{review.productName}</strong>
                   <span className="admin-reviews__author">by {review.userName}</span>
                   <StarRating rating={review.rating} size="sm" />
-                  <span className={`status-badge status-badge--${review.status}`}>{review.status}</span>
+                  <span className={`status-badge status-badge--${review.status}`}>
+                    {review.status}
+                  </span>
                 </div>
                 <p className="admin-reviews__text">{review.text}</p>
                 <div className="admin-reviews__actions">
-                  <span className="admin-reviews__date">{new Date(review.createdAt).toLocaleDateString()}</span>
+                  <span className="admin-reviews__date">
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </span>
                   {review.status === 'pending' && (
                     <>
-                      <button className="btn btn--primary btn--sm" onClick={() => handleModerate(review.id, 'approved')}>
+                      <button
+                        className="btn btn--primary btn--sm"
+                        onClick={() => handleModerate(review.id, 'approved')}
+                      >
                         Approve
                       </button>
-                      <button className="btn btn--secondary btn--sm" onClick={() => handleModerate(review.id, 'rejected')}>
+                      <button
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => handleModerate(review.id, 'rejected')}
+                      >
                         Reject
                       </button>
                     </>
@@ -95,9 +108,18 @@ export function AdminReviewsPage() {
           </ul>
           {total > pageSize && (
             <div className="review-list__pagination">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-              <span>Page {page} of {Math.ceil(total / pageSize)}</span>
-              <button disabled={page >= Math.ceil(total / pageSize)} onClick={() => setPage((p) => p + 1)}>Next</button>
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </button>
+              <span>
+                Page {page} of {Math.ceil(total / pageSize)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(total / pageSize)}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
             </div>
           )}
         </>

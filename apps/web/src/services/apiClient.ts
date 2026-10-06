@@ -1,4 +1,26 @@
+import type { AggregateRating, AuthResponse, Product, Review } from '@zava/shared';
+
 const API_BASE = '/api';
+
+type ProductResponse = Pick<
+  Product,
+  'id' | 'name' | 'description' | 'price' | 'imageUrl' | 'category' | 'stock'
+> & { rating: AggregateRating };
+
+interface CartResponse {
+  id: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    quantity: number;
+    product: Pick<Product, 'id' | 'name' | 'price' | 'imageUrl'>;
+  }>;
+  total: number;
+}
+
+interface AdminReviewResponse extends Review {
+  productName: string;
+}
 
 export class ApiError extends Error {
   statusCode: number;
@@ -31,57 +53,62 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Products
   getProducts: (category?: string) =>
-    request<{ data: any[]; total: number }>(category ? `/products?category=${category}` : '/products'),
+    request<{ data: ProductResponse[]; total: number }>(
+      category ? `/products?category=${category}` : '/products',
+    ),
 
-  getProduct: (id: string) => request<any>(`/products/${id}`),
+  getProduct: (id: string) => request<ProductResponse>(`/products/${id}`),
 
   getCategories: () => request<{ data: string[] }>('/products/categories/list'),
 
   // Cart
-  getCart: () => request<any>('/cart'),
+  getCart: () => request<CartResponse>('/cart'),
 
   addToCart: (productId: string, quantity: number) =>
-    request<any>('/cart/items', {
+    request<CartResponse>('/cart/items', {
       method: 'POST',
       body: JSON.stringify({ productId, quantity }),
     }),
 
-  removeFromCart: (itemId: string) =>
-    request<void>(`/cart/items/${itemId}`, { method: 'DELETE' }),
+  removeFromCart: (itemId: string) => request<void>(`/cart/items/${itemId}`, { method: 'DELETE' }),
 
   // Auth
   login: (email: string, password: string) =>
-    request<{ token: string; user: any }>('/auth/login', {
+    request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
 
   register: (email: string, password: string, name: string) =>
-    request<{ token: string; user: any }>('/auth/register', {
+    request<AuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     }),
 
   // Reviews
   getProductReviews: (productId: string, page = 1) =>
-    request<{ data: any[]; total: number; page: number; pageSize: number; aggregate: { averageRating: number; reviewCount: number } }>(
-      `/reviews/product/${productId}?page=${page}`,
-    ),
+    request<{
+      data: Review[];
+      total: number;
+      page: number;
+      pageSize: number;
+      aggregate: { averageRating: number; reviewCount: number };
+    }>(`/reviews/product/${productId}?page=${page}`),
 
   submitReview: (data: { productId: string; rating: number; text: string }) =>
-    request<any>('/reviews', {
+    request<Review>('/reviews', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // Admin Reviews
   getAdminReviews: (status?: string, page = 1) =>
-    request<{ data: any[]; total: number; page: number; pageSize: number }>(
+    request<{ data: AdminReviewResponse[]; total: number; page: number; pageSize: number }>(
       `/admin/reviews?page=${page}${status ? `&status=${status}` : ''}`,
     ),
 
   moderateReview: (reviewId: string, status: 'approved' | 'rejected') =>
-    request<any>(`/admin/reviews/${reviewId}`, {
+    request<AdminReviewResponse>(`/admin/reviews/${reviewId}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
