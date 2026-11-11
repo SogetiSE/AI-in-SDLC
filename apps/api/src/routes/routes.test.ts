@@ -182,6 +182,44 @@ describe('Cart API', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(204);
   });
+
+  it('POST /api/cart/items → 404 for unknown product', async () => {
+    const res = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId: 'nonexistent-id', quantity: 1 });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('NOT_FOUND');
+  });
+
+  it('POST /api/cart/items → 400 when quantity > stock', async () => {
+    const res = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId, quantity: 9999 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Insufficient stock');
+  });
+
+  it("DELETE another user's item → 404 and item still exists", async () => {
+    const added = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId, quantity: 1 });
+    const itemId = added.body.items[0].id;
+
+    const other = await request(app).post('/api/auth/register').send({
+      email: 'cart-intruder@zava.com',
+      password: 'IntruderPass123',
+      name: 'Intruder',
+    });
+
+    const res = await request(app)
+      .delete(`/api/cart/items/${itemId}`)
+      .set('Authorization', `Bearer ${other.body.token}`);
+    expect(res.status).toBe(404);
+    expect(await prisma.cartItem.findUnique({ where: { id: itemId } })).not.toBeNull();
+  });
 });
 
 describe('Discount API', () => {
