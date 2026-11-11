@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../models/prisma.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
 
 export const cartRouter = Router();
 
@@ -15,7 +16,7 @@ const addItemSchema = z.object({
 });
 
 // GET /api/cart — get current user's cart
-cartRouter.get('/', async (req: AuthenticatedRequest, res: Response) => {
+cartRouter.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   let cart = await prisma.cart.findFirst({
     where: { userId: req.userId! },
     include: { items: { include: { product: true } } },
@@ -30,10 +31,10 @@ cartRouter.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
   const total = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   res.json({ ...cart, total });
-});
+}));
 
 // POST /api/cart/items — add item to cart
-cartRouter.post('/items', validate(addItemSchema), async (req: AuthenticatedRequest, res: Response) => {
+cartRouter.post('/items', validate(addItemSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { productId, quantity } = req.body;
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -74,10 +75,10 @@ cartRouter.post('/items', validate(addItemSchema), async (req: AuthenticatedRequ
 
   const total = updatedCart!.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   res.json({ ...updatedCart, total });
-});
+}));
 
 // DELETE /api/cart/items/:itemId — remove item from cart
-cartRouter.delete('/items/:itemId', async (req: AuthenticatedRequest, res: Response) => {
+cartRouter.delete('/items/:itemId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const item = await prisma.cartItem.findUnique({
     where: { id: req.params.itemId },
     include: { cart: true },
@@ -90,4 +91,4 @@ cartRouter.delete('/items/:itemId', async (req: AuthenticatedRequest, res: Respo
 
   await prisma.cartItem.delete({ where: { id: req.params.itemId } });
   res.status(204).send();
-});
+}));

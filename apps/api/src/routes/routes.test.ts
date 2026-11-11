@@ -3,6 +3,31 @@ import request from 'supertest';
 import { app } from '../app.js';
 import { prisma } from '../models/prisma.js';
 
+// Note: do not use vi.restoreAllMocks() here. Prisma model methods are not own
+// properties, so restoring a spy on them leaves them undefined. Prisma spies use
+// mock*Once and fall through to the real method afterwards; only console spies,
+// tracked here, are restored.
+const consoleSpies: Array<{ mockRestore: () => void }> = [];
+function spyConsole(method: 'info' | 'error') {
+  const spy = vi.spyOn(console, method).mockImplementation(() => {});
+  consoleSpies.push(spy);
+  return spy;
+}
+function restoreConsoleSpies() {
+  while (consoleSpies.length) consoleSpies.pop()!.mockRestore();
+}
+function loggedEvents(spy: ReturnType<typeof spyConsole>) {
+  return (spy as unknown as { mock: { calls: unknown[][] } }).mock.calls
+    .map((c) => {
+      try {
+        return JSON.parse(String(c[0]));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
 describe('GET /api/health', () => {
   it('returns ok status', async () => {
     const res = await request(app).get('/api/health');
@@ -222,6 +247,94 @@ describe('Cart API', () => {
   });
 });
 
+describe('Cart errors', () => {
+  let token: string;
+  let userId: string;
+  let productId: string;
+  const unhandled = vi.fn();
+  const onUnhandled = (reason: unknown) => unhandled(reason);
+
+  beforeAll(async () => {
+    process.on('unhandledRejection', onUnhandled);
+    const reg = await request(app).post('/api/auth/register').send({
+      email: 'errors-user@zava.com',
+      password: 'ErrorsPass123',
+      name: 'Errors Tester',
+    });
+    token = reg.body.token;
+    userId = reg.body.user.id;
+    const prods = await request(app).get('/api/products');
+    productId = prods.body.data[0].id;
+  });
+
+  afterAll(() => {
+    process.off('unhandledRejection', onUnhandled);
+  });
+
+  afterEach(() => {
+    restoreConsoleSpies();
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  function expectHttpErrorLogged(errorSpy: ReturnType<typeof spyConsole>, method: string, path: string, uid?: string) {
+    expect(loggedEvents(errorSpy)).toContainEqual(
+      expect.objectContaining({ event: 'http.error', method, path, ...(uid ? { userId: uid } : {}), message: 'db down' }),
+    );
+  }
+
+  const internalError = { message: 'Internal server error', code: 'INTERNAL_ERROR', statusCode: 500 };
+
+  it('GET /api/cart → 500 INTERNAL_ERROR when prisma throws', async () => {
+    const errorSpy = spyConsole('error');
+    vi.spyOn(prisma.cart, 'findFirst').mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app).get('/api/cart').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual(internalError);
+    expectHttpErrorLogged(errorSpy, 'GET', '/api/cart', userId);
+  });
+
+  it('POST /api/cart/items → 500 when prisma throws', async () => {
+    const errorSpy = spyConsole('error');
+    vi.spyOn(prisma.product, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId, quantity: 1 });
+    expect(res.status).toBe(500);
+    expectHttpErrorLogged(errorSpy, 'POST', '/api/cart/items', userId);
+  });
+
+  it('DELETE /api/cart/items/:id → 500 when prisma throws', async () => {
+    const errorSpy = spyConsole('error');
+    vi.spyOn(prisma.cartItem, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app).delete('/api/cart/items/some-id').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(500);
+    expectHttpErrorLogged(errorSpy, 'DELETE', '/api/cart/items/some-id', userId);
+  });
+
+  it("GET /api/cart → 500 when authenticate's user lookup throws", async () => {
+    const errorSpy = spyConsole('error');
+    vi.spyOn(prisma.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app).get('/api/cart').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(500);
+    expectHttpErrorLogged(errorSpy, 'GET', '/api/cart');
+  });
+
+  it('GET /api/cart → still 401 for a bad token', async () => {
+    const res = await request(app).get('/api/cart').set('Authorization', 'Bearer not-a-jwt');
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+  });
+
+  it('POST /api/auth/login → 500 when prisma throws', async () => {
+    const errorSpy = spyConsole('error');
+    vi.spyOn(prisma.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app).post('/api/auth/login').send({ email: 'errors-user@zava.com', password: 'ErrorsPass123' });
+    expect(res.status).toBe(500);
+    expectHttpErrorLogged(errorSpy, 'POST', '/api/auth/login');
+  });
+});
+
 describe('Discount API', () => {
   let token: string;
   let userId: string;
@@ -254,7 +367,7 @@ describe('Discount API', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    restoreConsoleSpies();
   });
 
   it('DB rejects a second CartDiscount for the same cart with P2002', async () => {
