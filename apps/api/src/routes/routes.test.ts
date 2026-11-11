@@ -1,12 +1,35 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
 import { prisma } from '../models/prisma.js';
 
-// Note: do not use vi.restoreAllMocks() here. Prisma model methods are not own
-// properties, so restoring a spy on them leaves them undefined. Prisma spies use
-// mock*Once and fall through to the real method afterwards; only console spies,
-// tracked here, are restored.
+// Note: vi.spyOn does not work on Prisma model methods. The delegates are proxies,
+// so the spy captures the wrong "original": restoring leaves the method undefined
+// and passing through returns undefined. overrideOnce() reads the real method with
+// a normal property access, replaces it for exactly one call, then puts it back.
+type Overridable = Record<string, unknown>;
+const overrides: Array<() => void> = [];
+function overrideOnce(delegate: object, method: string, impl: (...args: unknown[]) => unknown) {
+  const target = delegate as Overridable;
+  const original = target[method];
+  const restore = () => {
+    target[method] = original;
+  };
+  const fake = vi.fn((...args: unknown[]) => {
+    restore();
+    return impl(...args);
+  });
+  target[method] = fake;
+  overrides.push(restore);
+  return fake;
+}
+function failOnce(delegate: object, method: string) {
+  return overrideOnce(delegate, method, () => Promise.reject(new Error('db down')));
+}
+function restoreOverrides() {
+  while (overrides.length) overrides.pop()!();
+}
+
 const consoleSpies: Array<{ mockRestore: () => void }> = [];
 function spyConsole(method: 'info' | 'error') {
   const spy = vi.spyOn(console, method).mockImplementation(() => {});
@@ -176,6 +199,8 @@ describe('Cart API', () => {
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(0);
     expect(res.body.total).toBe(0);
+    expect(res.body.subtotal).toBe(0);
+    expect(res.body.discount).toBeNull();
   });
 
   it('POST /api/cart/items adds an item to the cart', async () => {
@@ -273,6 +298,7 @@ describe('Cart errors', () => {
 
   afterEach(() => {
     restoreConsoleSpies();
+    restoreOverrides();
     expect(unhandled).not.toHaveBeenCalled();
   });
 
@@ -286,7 +312,7 @@ describe('Cart errors', () => {
 
   it('GET /api/cart → 500 INTERNAL_ERROR when prisma throws', async () => {
     const errorSpy = spyConsole('error');
-    vi.spyOn(prisma.cart, 'findFirst').mockRejectedValueOnce(new Error('db down'));
+    failOnce(prisma.cart, 'findFirst');
     const res = await request(app).get('/api/cart').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(500);
     expect(res.body).toEqual(internalError);
@@ -295,7 +321,7 @@ describe('Cart errors', () => {
 
   it('POST /api/cart/items → 500 when prisma throws', async () => {
     const errorSpy = spyConsole('error');
-    vi.spyOn(prisma.product, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    failOnce(prisma.product, 'findUnique');
     const res = await request(app)
       .post('/api/cart/items')
       .set('Authorization', `Bearer ${token}`)
@@ -306,7 +332,7 @@ describe('Cart errors', () => {
 
   it('DELETE /api/cart/items/:id → 500 when prisma throws', async () => {
     const errorSpy = spyConsole('error');
-    vi.spyOn(prisma.cartItem, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    failOnce(prisma.cartItem, 'findUnique');
     const res = await request(app).delete('/api/cart/items/some-id').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(500);
     expectHttpErrorLogged(errorSpy, 'DELETE', '/api/cart/items/some-id', userId);
@@ -314,7 +340,7 @@ describe('Cart errors', () => {
 
   it("GET /api/cart → 500 when authenticate's user lookup throws", async () => {
     const errorSpy = spyConsole('error');
-    vi.spyOn(prisma.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    failOnce(prisma.user, 'findUnique');
     const res = await request(app).get('/api/cart').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(500);
     expectHttpErrorLogged(errorSpy, 'GET', '/api/cart');
@@ -328,7 +354,7 @@ describe('Cart errors', () => {
 
   it('POST /api/auth/login → 500 when prisma throws', async () => {
     const errorSpy = spyConsole('error');
-    vi.spyOn(prisma.user, 'findUnique').mockRejectedValueOnce(new Error('db down'));
+    failOnce(prisma.user, 'findUnique');
     const res = await request(app).post('/api/auth/login').send({ email: 'errors-user@zava.com', password: 'ErrorsPass123' });
     expect(res.status).toBe(500);
     expectHttpErrorLogged(errorSpy, 'POST', '/api/auth/login');
@@ -368,6 +394,97 @@ describe('Discount API', () => {
 
   afterEach(() => {
     restoreConsoleSpies();
+    restoreOverrides();
+  });
+
+  async function cartId(): Promise<string> {
+    const res = await request(app).get('/api/cart').set(auth());
+    return res.body.id;
+  }
+
+  async function attach(code: string): Promise<void> {
+    const dc = await prisma.discountCode.findUniqueOrThrow({ where: { code } });
+    await prisma.cartDiscount.create({ data: { cartId: await cartId(), discountCodeId: dc.id } });
+  }
+
+  async function addItem(index: number, quantity = 1) {
+    return request(app).post('/api/cart/items').set(auth()).send({ productId: productIds[index], quantity });
+  }
+
+  async function priceOf(index: number): Promise<number> {
+    return (await prisma.product.findUniqueOrThrow({ where: { id: productIds[index] } })).price;
+  }
+
+  beforeEach(async () => {
+    const id = await cartId();
+    await prisma.cartDiscount.deleteMany({ where: { cartId: id } });
+    await prisma.cartItem.deleteMany({ where: { cartId: id } });
+    await prisma.discountCode.update({ where: { code: 'TEMP30' }, data: { active: true } });
+  });
+
+  it('adding items recalculates discount', async () => {
+    await attach('WELCOME10');
+    await addItem(0, 2);
+    const res = await addItem(1, 1);
+    const subtotal = 2 * (await priceOf(0)) + (await priceOf(1));
+    expect(res.status).toBe(200);
+    expect(res.body.subtotal).toBe(subtotal);
+    expect(res.body.discount).toEqual({ code: 'WELCOME10', percentOff: 10, amount: Math.floor(subtotal / 10) });
+    expect(res.body.total).toBe(subtotal - Math.floor(subtotal / 10));
+  });
+
+  it('removing an item then GET recalculates the discount', async () => {
+    await attach('WELCOME10');
+    await addItem(0, 1);
+    const withTwo = await addItem(1, 1);
+    const toRemove = withTwo.body.items.find((i: { productId: string }) => i.productId === productIds[1]).id;
+    await request(app).delete(`/api/cart/items/${toRemove}`).set(auth()).expect(204);
+    const res = await request(app).get('/api/cart').set(auth());
+    const subtotal = await priceOf(0);
+    expect(res.body.subtotal).toBe(subtotal);
+    expect(res.body.discount.amount).toBe(Math.floor(subtotal / 10));
+  });
+
+  it('removing the last item keeps the discount attached (amount 0)', async () => {
+    await attach('WELCOME10');
+    const added = await addItem(0, 1);
+    await request(app).delete(`/api/cart/items/${added.body.items[0].id}`).set(auth()).expect(204);
+    const res = await request(app).get('/api/cart').set(auth());
+    expect(res.body.items).toHaveLength(0);
+    expect(res.body.discount).toEqual({ code: 'WELCOME10', percentOff: 10, amount: 0 });
+    expect(res.body.total).toBe(0);
+  });
+
+  it('cart response exposes exactly the public fields', async () => {
+    await attach('WELCOME10');
+    await addItem(0, 1);
+    const res = await request(app).get('/api/cart').set(auth());
+    expect(Object.keys(res.body).sort()).toEqual(
+      ['createdAt', 'discount', 'id', 'items', 'subtotal', 'total', 'updatedAt', 'userId'],
+    );
+    expect(Object.keys(res.body.discount).sort()).toEqual(['amount', 'code', 'percentOff']);
+  });
+
+  it('deactivated code: GET returns discount null and logs discount.dropped', async () => {
+    await attach('TEMP30');
+    await addItem(0, 1);
+    await prisma.discountCode.update({ where: { code: 'TEMP30' }, data: { active: false } });
+    const info = spyConsole('info');
+    const res = await request(app).get('/api/cart').set(auth());
+    expect(res.body.discount).toBeNull();
+    expect(res.body.total).toBe(res.body.subtotal);
+    expect(await prisma.cartDiscount.count({ where: { cartId: res.body.id } })).toBe(0);
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.dropped', reason: 'inactive', code: 'TEMP30', cartId: res.body.id }),
+    );
+  });
+
+  it('POST /items after deactivation → discount null', async () => {
+    await attach('TEMP30');
+    await prisma.discountCode.update({ where: { code: 'TEMP30' }, data: { active: false } });
+    const res = await addItem(0, 1);
+    expect(res.status).toBe(200);
+    expect(res.body.discount).toBeNull();
   });
 
   it('DB rejects a second CartDiscount for the same cart with P2002', async () => {

@@ -1,9 +1,12 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import type { Cart as CartResponse } from '@zava/shared';
 import { prisma } from '../models/prisma.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { logEvent } from '../lib/log.js';
+import { priceCart } from '../services/pricing.js';
 
 export const cartRouter = Router();
 
@@ -15,26 +18,75 @@ const addItemSchema = z.object({
   quantity: z.number().int().min(1),
 });
 
-// GET /api/cart — get current user's cart
-cartRouter.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  let cart = await prisma.cart.findFirst({
-    where: { userId: req.userId! },
-    include: { items: { include: { product: true } } },
-  });
+const cartInclude = {
+  items: { include: { product: true } },
+  cartDiscount: { include: { discountCode: true } },
+} as const;
 
-  if (!cart) {
-    cart = await prisma.cart.create({
-      data: { userId: req.userId! },
-      include: { items: { include: { product: true } } },
+async function findOrCreateCartId(userId: string): Promise<string> {
+  const existing = await prisma.cart.findFirst({ where: { userId }, select: { id: true } });
+  if (existing) return existing.id;
+  const created = await prisma.cart.create({ data: { userId }, select: { id: true } });
+  return created.id;
+}
+
+/**
+ * Loads a cart and prices it. The single place every cart response is built from.
+ * An applied code that has since been deactivated is dropped here, so no cart route
+ * ever prices with it.
+ */
+async function loadPricedCart(cartId: string): Promise<CartResponse> {
+  const cart = await prisma.cart.findUniqueOrThrow({ where: { id: cartId }, include: cartInclude });
+
+  let applied = cart.cartDiscount;
+  if (applied && !applied.discountCode.active) {
+    await prisma.cartDiscount.deleteMany({ where: { id: applied.id } });
+    logEvent('discount.dropped', {
+      reason: 'inactive',
+      cartId: cart.id,
+      userId: cart.userId,
+      code: applied.discountCode.code,
     });
+    applied = null;
   }
 
-  const total = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  res.json({ ...cart, total });
+  const priced = priceCart(
+    cart.items.map((item) => ({ quantity: item.quantity, price: item.product.price })),
+    applied ? [{ code: applied.discountCode.code, percentOff: applied.discountCode.percentOff }] : [],
+  );
+
+  // Built explicitly (never spread from Prisma) so internal fields such as
+  // discountCodeId, appliedAt or active never reach the client.
+  return {
+    id: cart.id,
+    userId: cart.userId,
+    items: cart.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        imageUrl: item.product.imageUrl,
+      },
+    })),
+    subtotal: priced.subtotal,
+    discount: priced.discount,
+    total: priced.total,
+    createdAt: cart.createdAt.toISOString(),
+    updatedAt: cart.updatedAt.toISOString(),
+  };
+}
+
+// GET /api/cart — get current user's cart
+cartRouter.get('/', asyncHandler<AuthenticatedRequest>(async (req, res: Response) => {
+  const cartId = await findOrCreateCartId(req.userId!);
+  res.json(await loadPricedCart(cartId));
 }));
 
 // POST /api/cart/items — add item to cart
-cartRouter.post('/items', validate(addItemSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+cartRouter.post('/items', validate(addItemSchema), asyncHandler<AuthenticatedRequest>(async (req, res: Response) => {
   const { productId, quantity } = req.body;
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -48,13 +100,10 @@ cartRouter.post('/items', validate(addItemSchema), asyncHandler(async (req: Auth
     return;
   }
 
-  let cart = await prisma.cart.findFirst({ where: { userId: req.userId! } });
-  if (!cart) {
-    cart = await prisma.cart.create({ data: { userId: req.userId! } });
-  }
+  const cartId = await findOrCreateCartId(req.userId!);
 
   const existingItem = await prisma.cartItem.findFirst({
-    where: { cartId: cart.id, productId },
+    where: { cartId, productId },
   });
 
   if (existingItem) {
@@ -64,21 +113,15 @@ cartRouter.post('/items', validate(addItemSchema), asyncHandler(async (req: Auth
     });
   } else {
     await prisma.cartItem.create({
-      data: { cartId: cart.id, productId, quantity },
+      data: { cartId, productId, quantity },
     });
   }
 
-  const updatedCart = await prisma.cart.findFirst({
-    where: { id: cart.id },
-    include: { items: { include: { product: true } } },
-  });
-
-  const total = updatedCart!.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  res.json({ ...updatedCart, total });
+  res.json(await loadPricedCart(cartId));
 }));
 
 // DELETE /api/cart/items/:itemId — remove item from cart
-cartRouter.delete('/items/:itemId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+cartRouter.delete('/items/:itemId', asyncHandler<AuthenticatedRequest>(async (req, res: Response) => {
   const item = await prisma.cartItem.findUnique({
     where: { id: req.params.itemId },
     include: { cart: true },
