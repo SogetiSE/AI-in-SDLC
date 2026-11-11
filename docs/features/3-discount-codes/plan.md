@@ -50,30 +50,30 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
 
 ### packages/shared
 
-- [ ] **T1** — Correct the `CartItem` type to the API's wire shape (`product: { id, name, price, imageUrl }`, no flat `price`). Extend `Cart` with `subtotal` and `discount: AppliedDiscount | null`, make the dates `string`, and document `total` as post-discount. Add `AppliedDiscount` and `ApplyDiscountInput`, and export them from `index.ts`. **Types only, no runtime values** (D8) · serves S1, N9, N11
+- [x] **T1** — Correct the `CartItem` type to the API's wire shape (`product: { id, name, price, imageUrl }`, no flat `price`). Extend `Cart` with `subtotal` and `discount: AppliedDiscount | null`, make the dates `string`, and document `total` as post-discount. Add `AppliedDiscount` and `ApplyDiscountInput`, and export them from `index.ts`. **Types only, no runtime values** (D8) · serves S1, N9, N11
   - Test first: none at runtime, because the change is types only. Proved by `npm run build -w packages/shared` and by T9's web `tsc -b`, which currently uses a local `Cart` and will compile against the shared one.
   - Files: `packages/shared/src/types/cart.ts`, `packages/shared/src/index.ts`
 
 ### apps/api
 
-- [ ] **T2** — Prisma models `DiscountCode` and `CartDiscount` (`cartId @unique`, `onDelete: Cascade`), plus the `Cart.cartDiscount` back-relation, added identically to all three schema files. Seed gets `WELCOME10`/10, `BREW15`/15 and `RETIRED20`/20 (inactive), and cleanup deletes `cartDiscount` then `discountCode` before `cart`. · serves S10, N4, N8
+- [x] **T2** — Prisma models `DiscountCode` and `CartDiscount` (`cartId @unique`, `onDelete: Cascade`), plus the `Cart.cartDiscount` back-relation, added identically to all three schema files. Seed gets `WELCOME10`/10, `BREW15`/15 and `RETIRED20`/20 (inactive), and cleanup deletes `cartDiscount` then `discountCode` before `cart`. · serves S10, N4, N8
   - Test first: `routes.test.ts > Discount API > DB rejects a second CartDiscount for the same cart with P2002`. It fails today because `prisma.cartDiscount` doesn't exist.
   - Also: the existing `Products API` / `Auth API` `beforeAll` `cart.deleteMany()` still passes (cascade).
   - After editing the schemas, run `npx prisma generate` in `apps/api`. `run-vitest.mjs` uses `--skip-generate`, so without this the client has no `cartDiscount` delegate and API `tsc` fails.
   - Files: `apps/api/prisma/schema.prisma`, `schema.test.prisma`, `schema.docker.prisma`, `apps/api/prisma/seed.ts`
 
-- [ ] **T3** — `priceCart(items, discounts)`: a pure function with a single-discount policy (uses `discounts[0]` only). `MAX_DISCOUNT_PERCENT = 50` lives here. Returns `{ subtotal, discount: { code, percentOff, amount } | null, total }`. · serves S3, AC3, D2, D3, D5
+- [x] **T3** — `priceCart(items, discounts)`: a pure function with a single-discount policy (uses `discounts[0]` only). `MAX_DISCOUNT_PERCENT = 50` lives here. Returns `{ subtotal, discount: { code, percentOff, amount } | null, total }`. · serves S3, AC3, D2, D3, D5
   - Test first: `apps/api/src/services/pricing.test.ts > priceCart >` `applies percent to all items across categories`, `floors to whole cents`, `caps at 50%`, `percentOff ≤ 0 → discount 0`, `never below 0`, `no discount → total = subtotal`. These fail today because the module doesn't exist.
   - Files: `apps/api/src/services/pricing.ts`, `apps/api/src/services/pricing.test.ts`
 
-- [ ] **T4** — **Guard tests, not red tests:** they pass today and are written first to pin existing behaviour before T5 touches `cart.ts`. · serves N2, N3, N6
+- [x] **T4** — **Guard tests, not red tests:** they pass today and are written first to pin existing behaviour before T5 touches `cart.ts`. · serves N2, N3, N6
   - Tests (in `routes.test.ts > Cart API`):
     - `POST /api/cart/items → 404 for unknown product`
     - `→ 400 when quantity > stock`
     - `DELETE another user's item → 404 and item still exists` (registers a second user)
   - Files: `apps/api/src/routes/routes.test.ts`
 
-- [ ] **T5** — Error handling. · serves S14, O4, D9
+- [x] **T5** — Error handling. · serves S14, O4, D9
   - `asyncHandler(fn)` forwards rejections to `next`.
   - `logEvent(event, fields)` writes `console.info(JSON.stringify({ event, ...fields }))`.
   - `errorHandler` writes `console.error(JSON.stringify({ event: 'http.error', method, path, userId, message }))` and keeps the same 500 body.
@@ -87,7 +87,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
     - The others fail today because the rejection is unhandled: supertest waits until the 5 s timeout, and Vitest reports an unhandled rejection.
   - Files: `apps/api/src/lib/asyncHandler.ts`, `apps/api/src/lib/log.ts`, `apps/api/src/middleware/error.ts`, `apps/api/src/middleware/auth.ts`, `apps/api/src/routes/auth.ts`, `apps/api/src/routes/cart.ts`
 
-- [ ] **T6** — `loadPricedCart(cartId)` runs one `findFirst` including `items.product` and `cartDiscount.discountCode`. If the attached code is inactive, it deletes the row and logs `discount.dropped`, then calls `priceCart`. `toCartResponse(cart, priced)` builds `{ id, userId, items, subtotal, discount, total, createdAt, updatedAt }` explicitly, with no spread. GET and POST items use both. · serves S1, S8, S12, N1, O6, P1
+- [x] **T6** — `loadPricedCart(cartId)` runs one `findFirst` including `items.product` and `cartDiscount.discountCode`. If the attached code is inactive, it deletes the row and logs `discount.dropped`, then calls `priceCart`. `toCartResponse(cart, priced)` builds `{ id, userId, items, subtotal, discount, total, createdAt, updatedAt }` explicitly, with no spread. GET and POST items use both. · serves S1, S8, S12, N1, O6, P1
   - Test first:
     - `Cart API > returns empty cart for new user`, extended to assert `subtotal === 0` and `discount === null`. It fails today because `subtotal` is undefined.
     - `Discount API > deactivated code: GET returns discount null and logs discount.dropped`. Set it up by creating a `CartDiscount` directly with prisma, then setting `active=false`.
@@ -98,7 +98,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
     - The deactivation tests use a dedicated code (`TEMP30`), so `WELCOME10` stays active for later tests.
   - Files: `apps/api/src/routes/cart.ts`
 
-- [ ] **T7** — `POST /api/cart/discount` takes `validate(z.object({ code: z.string().trim().min(1).max(32) }))` and is wrapped in `asyncHandler`. It normalises the code to upper case, then follows the design §5 control flow: 404 for an unknown or inactive code, 200 if the same code is already applied, 409 if another active code is applied, and drop-then-insert if the applied code is inactive. On P2002 it re-reads: the same code gives 200, otherwise 409 with `via: "P2002"`. On success it logs `discount.applied` with subtotal, amount and total. · serves S1, S2, S4, S5, S6, S10, S11, S13, AC1, AC2, AC4, N6, O1, O2, O3, O5
+- [x] **T7** — `POST /api/cart/discount` takes `validate(z.object({ code: z.string().trim().min(1).max(32) }))` and is wrapped in `asyncHandler`. It normalises the code to upper case, then follows the design §5 control flow: 404 for an unknown or inactive code, 200 if the same code is already applied, 409 if another active code is applied, and drop-then-insert if the applied code is inactive. On P2002 it re-reads: the same code gives 200, otherwise 409 with `via: "P2002"`. On success it logs `discount.applied` with subtotal, amount and total. · serves S1, S2, S4, S5, S6, S10, S11, S13, AC1, AC2, AC4, N6, O1, O2, O3, O5
   - Test first (`routes.test.ts > Discount API`). These fail today with 404, because the route doesn't exist:
     - `requires auth` (401)
     - `applies a valid code`: 200, amount = 10% of subtotal, `total = subtotal − amount`, and `discount` has exactly the keys `code, percentOff, amount`
@@ -115,7 +115,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
     - a log spy asserts `discount.applied` and `discount.rejected` with `reason` `not_found` / `already_applied`
   - Files: `apps/api/src/routes/cart.ts`, `apps/api/src/routes/routes.test.ts`
 
-- [ ] **T8** — `DELETE /api/cart/discount`, wrapped in `asyncHandler`: `deleteMany({ where: { cartId } })`, then logs `discount.removed` with the code when count > 0 and returns 200 with the priced cart. · serves S7, S13, S14, O7
+- [x] **T8** — `DELETE /api/cart/discount`, wrapped in `asyncHandler`: `deleteMany({ where: { cartId } })`, then logs `discount.removed` with the code when count > 0 and returns 200 with the priced cart. · serves S7, S13, S14, O7
   - Test first (these fail today because the route doesn't exist):
     - `DELETE /api/cart/discount removes it, then a new code applies`
     - `DELETE with none applied → 200`
@@ -125,7 +125,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
 
 ### apps/web
 
-- [ ] **T9** — `apiClient`: add `applyDiscount(code)` (POST) and `removeDiscount()` (DELETE), and type `getCart`/`addToCart` as `Cart` from `@zava/shared`. `useCart`:
+- [x] **T9** — `apiClient`: add `applyDiscount(code)` (POST) and `removeDiscount()` (DELETE), and type `getCart`/`addToCart` as `Cart` from `@zava/shared`. `useCart`:
   - Replace the local `Cart`/`CartItem` interfaces with the shared types.
   - Add a silent `refreshCart()` that doesn't touch `loading`; `removeItem` awaits the delete, then calls `refreshCart()` instead of recomputing `total` locally.
   - Add `applyDiscount(code)`, `removeDiscount()`, `discountError` and `discountPending`. A failed apply sets `discountError` to `ApiError.message` and leaves the cart unchanged; a 401 still clears the session, as the other actions do.
@@ -145,7 +145,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
   - Type-check note: `tsc -b` also checks test files, so the mocks must match the full typed API and `CartContextValue`. Build `packages/shared` first, because its types come from `dist/index.d.ts`.
   - Files: `apps/web/src/services/apiClient.ts`, `apps/web/src/hooks/useCart.tsx`, `apps/web/src/hooks/useCart.test.tsx`
 
-- [ ] **T10** — `DiscountCodeForm({ discount, onApply, onRemove, error, pending })`:
+- [x] **T10** — `DiscountCodeForm({ discount, onApply, onRemove, error, pending })`:
   - **Always** renders a `<form>` with a labelled input ("Discount code") and a submit `<button>` that is disabled while `pending` or while the input is empty.
   - With a discount applied, it also shows "WELCOME10 −$X.XX" and a Remove button (S15, D10).
   - The error renders in `role="alert"`, and focus returns to the input after an error.
@@ -160,7 +160,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
     - `input has an accessible label`
   - Files: `apps/web/src/components/DiscountCodeForm.tsx`, `apps/web/src/components/DiscountCodeForm.test.tsx`
 
-- [ ] **T11** — `CartPage`:
+- [x] **T11** — `CartPage`:
   - Uses the server's `cart.subtotal`, `cart.discount` and `cart.total`, with no local reduce.
   - Shows a Discount row and a Total row, and renders `DiscountCodeForm` wired to `useCart`.
   - When the cart is empty and has a discount, shows "CODE will apply to your next items · Remove".
@@ -172,7 +172,7 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
     - `removing an item keeps the summary rendered and shows the server total`. This re-renders with `loading: false` and the new cart, and asserts that the form and summary are present.
   - Files: `apps/web/src/pages/CartPage.tsx`, `apps/web/src/pages/CartPage.test.tsx`
 
-- [ ] **T12** — `CheckoutPage`:
+- [x] **T12** — `CheckoutPage`:
   - `shipping = cart.subtotal >= 7500 ? 0 : 895`.
   - A "Discount (CODE)" row when there is a discount.
   - Total and Place Order use `cart.total + shipping`.
@@ -186,14 +186,24 @@ pure, with no DB. Each new `describe` registers its own users and creates its co
 
 ## 2. Bookkeeping
 
-- [ ] **T13** — Docs (written to match the code, never ahead of it):
+- [x] **T13** — Docs (written to match the code, never ahead of it):
   - `docs/api-reference.md`: the cart response shape (no `data` wrapper; `subtotal`/`discount`/`total`), DELETE item returns `204`, the new `POST`/`DELETE /api/cart/discount` with their error codes.
   - `docs/architecture.md`: the data model gains `DiscountCode` and `CartDiscount`, and the "One Cart per User (1:1)" line notes that it isn't enforced.
   - `README.md:83-84`: the error shape becomes `{ message, code, statusCode }`, and a note that cart responses aren't wrapped in `{ data }`.
   - `apps/api/src/app.ts` landing-page endpoint list gains `/api/cart/discount`.
-- [ ] ADR: none (design §10).
-- [ ] Index: create `docs/features/README.md` with the row `| 3-discount-codes | full | approved | [design](3-discount-codes/design.md) · [plan](3-discount-codes/plan.md) |`. Set it to `implemented` on merge.
-- [ ] First commit: `docs/features/3-discount-codes/{design.md,plan.md}` and the index. Then one commit per task or small group of tasks, test first.
+- [x] ADR: none (design §10).
+- [x] Index: create `docs/features/README.md` with the row `| 3-discount-codes | full | approved | [design](3-discount-codes/design.md) · [plan](3-discount-codes/plan.md) |`. Set it to `implemented` on merge.
+- [x] First commit: `docs/features/3-discount-codes/{design.md,plan.md}` and the index. Then one commit per task or small group of tasks, test first.
+
+## 2a. Deviations during implementation
+
+- **Prisma spies.** `vi.spyOn` does not work on Prisma model methods. The delegates are proxies, so
+  restoring the spy leaves the method `undefined`, and calling through returns `undefined`. The API
+  tests use a small `overrideOnce` / `failOnce` helper in `routes.test.ts` instead. It replaces a
+  method for exactly one call and then restores it. Only console spies are restored with
+  `mockRestore`.
+- **Flaky test.** In one of roughly 20 runs, one API test failed intermittently; the likeliest candidate is the concurrency
+  test. The cause was not investigated, at the owner's request, and it is recorded as a known issue.
 
 ## 3. Verification
 

@@ -79,8 +79,8 @@ The API serves RESTful JSON endpoints under `/api/`. See [docs/api-reference.md]
 
 **Response shapes:**
 
-- Success: `{ data }`
-- Error: `{ error, message }`
+- Success: `{ data }` for lists; single resources such as the cart are returned unwrapped
+- Error: `{ message, code, statusCode }`
 
 Auth-protected routes require a `Bearer` token in the `Authorization` header. Tokens are obtained via the login endpoint.
 
