@@ -10,9 +10,11 @@ export function CheckoutPage(): JSX.Element {
   if (loading) return <div className="loading">Loading...</div>;
 
   const items = cart?.items ?? [];
-  const subtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const subtotal = cart?.subtotal ?? 0;
+  const discount = cart?.discount ?? null;
+  // Free shipping is a shipping rule, not an offer: it uses the pre-discount subtotal (issue #3).
   const shipping = subtotal >= 7500 ? 0 : 895;
-  const total = subtotal + shipping;
+  const total = (cart?.total ?? 0) + shipping;
 
   if (orderPlaced) {
     return (
@@ -137,6 +139,12 @@ export function CheckoutPage(): JSX.Element {
               <span>Subtotal</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
+            {discount && (
+              <div className="checkout__total-row cart-summary__row--discount">
+                <span>Discount ({discount.code})</span>
+                <span>−{formatPrice(discount.amount)}</span>
+              </div>
+            )}
             <div className="checkout__total-row">
               <span>Shipping</span>
               <span>{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>

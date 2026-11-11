@@ -1,3 +1,5 @@
+import type { Cart } from '@zava/shared';
+
 const API_BASE = '/api';
 
 export class ApiError extends Error {
@@ -38,16 +40,24 @@ export const api = {
   getCategories: () => request<{ data: string[] }>('/products/categories/list'),
 
   // Cart
-  getCart: () => request<any>('/cart'),
+  getCart: () => request<Cart>('/cart'),
 
   addToCart: (productId: string, quantity: number) =>
-    request<any>('/cart/items', {
+    request<Cart>('/cart/items', {
       method: 'POST',
       body: JSON.stringify({ productId, quantity }),
     }),
 
   removeFromCart: (itemId: string) =>
     request<void>(`/cart/items/${itemId}`, { method: 'DELETE' }),
+
+  applyDiscount: (code: string) =>
+    request<Cart>('/cart/discount', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  removeDiscount: () => request<Cart>('/cart/discount', { method: 'DELETE' }),
 
   // Auth
   login: (email: string, password: string) =>
