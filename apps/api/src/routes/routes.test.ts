@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
 import { prisma } from '../models/prisma.js';
@@ -181,5 +181,52 @@ describe('Cart API', () => {
       .delete(`/api/cart/items/${itemId}`)
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(204);
+  });
+});
+
+describe('Discount API', () => {
+  let token: string;
+  let userId: string;
+  let productIds: string[];
+
+  const auth = () => ({ Authorization: `Bearer ${token}` });
+
+  beforeAll(async () => {
+    await prisma.cartDiscount.deleteMany();
+    await prisma.discountCode.deleteMany();
+    await prisma.discountCode.createMany({
+      data: [
+        { code: 'WELCOME10', percentOff: 10 },
+        { code: 'BREW15', percentOff: 15 },
+        { code: 'RETIRED20', percentOff: 20, active: false },
+        { code: 'TEMP30', percentOff: 30 },
+      ],
+    });
+
+    const reg = await request(app).post('/api/auth/register').send({
+      email: 'discount-user@zava.com',
+      password: 'DiscountPass123',
+      name: 'Discount Tester',
+    });
+    token = reg.body.token;
+    userId = reg.body.user.id;
+
+    const prods = await request(app).get('/api/products');
+    productIds = prods.body.data.map((p: { id: string }) => p.id);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('DB rejects a second CartDiscount for the same cart with P2002', async () => {
+    const cart = await prisma.cart.create({ data: { userId } });
+    const codes = await prisma.discountCode.findMany({ where: { code: { in: ['WELCOME10', 'BREW15'] } } });
+    await prisma.cartDiscount.create({ data: { cartId: cart.id, discountCodeId: codes[0].id } });
+    await expect(
+      prisma.cartDiscount.create({ data: { cartId: cart.id, discountCodeId: codes[1].id } }),
+    ).rejects.toMatchObject({ code: 'P2002' });
+    await prisma.cart.delete({ where: { id: cart.id } });
+    expect(await prisma.cartDiscount.count({ where: { cartId: cart.id } })).toBe(0);
   });
 });

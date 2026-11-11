@@ -81,10 +81,19 @@ const productSeeds: ProductSeed[] = [
 
 const products = productSeeds;
 
+// Percentage codes; pricing caps any discount at 50%. RETIRED20 is inactive on purpose.
+const discountCodes = [
+  { code: 'WELCOME10', percentOff: 10, active: true },
+  { code: 'BREW15', percentOff: 15, active: true },
+  { code: 'RETIRED20', percentOff: 20, active: false },
+];
+
 async function main() {
   console.log('🌱 Seeding Zava database...');
 
   // Clean existing data
+  await prisma.cartDiscount.deleteMany();
+  await prisma.discountCode.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.product.deleteMany();
@@ -117,7 +126,9 @@ async function main() {
     await prisma.product.create({ data: product });
   }
 
-  console.log(`✅ Seeded ${products.length} products, 2 users`);
+  await prisma.discountCode.createMany({ data: discountCodes });
+
+  console.log(`✅ Seeded ${products.length} products, 2 users, ${discountCodes.length} discount codes`);
 }
 
 main()
