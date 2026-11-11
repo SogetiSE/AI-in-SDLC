@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import type { Cart as CartResponse } from '@zava/shared';
 import { prisma } from '../models/prisma.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
@@ -16,6 +17,10 @@ cartRouter.use(authenticate);
 const addItemSchema = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().min(1),
+});
+
+const applyDiscountSchema = z.object({
+  code: z.string().trim().min(1).max(32),
 });
 
 const cartInclude = {
@@ -134,4 +139,90 @@ cartRouter.delete('/items/:itemId', asyncHandler<AuthenticatedRequest>(async (re
 
   await prisma.cartItem.delete({ where: { id: req.params.itemId } });
   res.status(204).send();
+}));
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
+
+function alreadyApplied(res: Response, appliedCode: string): void {
+  res.status(409).json({
+    message: `Only one discount code can be used per order. Remove ${appliedCode} to use a different code.`,
+    code: 'DISCOUNT_ALREADY_APPLIED',
+    statusCode: 409,
+  });
+}
+
+// POST /api/cart/discount — apply a discount code (one per cart)
+cartRouter.post('/discount', validate(applyDiscountSchema), asyncHandler<AuthenticatedRequest>(async (req, res: Response) => {
+  const userId = req.userId!;
+  const code = (req.body.code as string).toUpperCase();
+  const cartId = await findOrCreateCartId(userId);
+
+  const discountCode = await prisma.discountCode.findUnique({ where: { code } });
+  if (!discountCode || !discountCode.active) {
+    logEvent('discount.rejected', { reason: 'not_found', code, cartId, userId });
+    res.status(404).json({ message: 'This discount code is not valid.', code: 'DISCOUNT_NOT_FOUND', statusCode: 404 });
+    return;
+  }
+
+  const current = await prisma.cartDiscount.findUnique({ where: { cartId }, include: { discountCode: true } });
+  if (current) {
+    if (current.discountCodeId === discountCode.id) {
+      res.json(await loadPricedCart(cartId));
+      return;
+    }
+    if (current.discountCode.active) {
+      logEvent('discount.rejected', { reason: 'already_applied', code, appliedCode: current.discountCode.code, cartId, userId });
+      alreadyApplied(res, current.discountCode.code);
+      return;
+    }
+    // The applied code was deactivated: drop it so the new one can take its place.
+    await prisma.cartDiscount.deleteMany({ where: { id: current.id } });
+    logEvent('discount.dropped', { reason: 'inactive', code: current.discountCode.code, cartId, userId });
+  }
+
+  try {
+    await prisma.cartDiscount.create({ data: { cartId, discountCodeId: discountCode.id } });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    // Lost a race: another request attached a discount to this cart first.
+    const winner = await prisma.cartDiscount.findUnique({ where: { cartId }, include: { discountCode: true } });
+    if (winner && winner.discountCodeId === discountCode.id) {
+      res.json(await loadPricedCart(cartId));
+      return;
+    }
+    const appliedCode = winner?.discountCode.code ?? 'the current code';
+    logEvent('discount.rejected', { reason: 'already_applied', via: 'P2002', code, appliedCode, cartId, userId });
+    alreadyApplied(res, appliedCode);
+    return;
+  }
+
+  const priced = await loadPricedCart(cartId);
+  logEvent('discount.applied', {
+    code,
+    percentOff: priced.discount?.percentOff,
+    subtotal: priced.subtotal,
+    amount: priced.discount?.amount,
+    total: priced.total,
+    cartId,
+    userId,
+  });
+  res.json(priced);
+}));
+
+// DELETE /api/cart/discount — remove the applied discount code (idempotent)
+cartRouter.delete('/discount', asyncHandler<AuthenticatedRequest>(async (req, res: Response) => {
+  const userId = req.userId!;
+  const cartId = await findOrCreateCartId(userId);
+
+  const current = await prisma.cartDiscount.findUnique({ where: { cartId }, include: { discountCode: true } });
+  if (current) {
+    const { count } = await prisma.cartDiscount.deleteMany({ where: { cartId } });
+    if (count > 0) {
+      logEvent('discount.removed', { code: current.discountCode.code, cartId, userId });
+    }
+  }
+
+  res.json(await loadPricedCart(cartId));
 }));

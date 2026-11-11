@@ -487,6 +487,183 @@ describe('Discount API', () => {
     expect(res.body.discount).toBeNull();
   });
 
+  const apply = (code: unknown, headers = auth()) =>
+    request(app).post('/api/cart/discount').set(headers).send({ code });
+
+  it('POST /api/cart/discount requires auth', async () => {
+    const res = await request(app).post('/api/cart/discount').send({ code: 'WELCOME10' });
+    expect(res.status).toBe(401);
+  });
+
+  it('applies a valid code', async () => {
+    await addItem(0, 2);
+    const info = spyConsole('info');
+    const res = await apply('WELCOME10');
+    const subtotal = 2 * (await priceOf(0));
+    const amount = Math.floor(subtotal / 10);
+    expect(res.status).toBe(200);
+    expect(res.body.subtotal).toBe(subtotal);
+    expect(res.body.discount).toEqual({ code: 'WELCOME10', percentOff: 10, amount });
+    expect(Object.keys(res.body.discount).sort()).toEqual(['amount', 'code', 'percentOff']);
+    expect(res.body.total).toBe(subtotal - amount);
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.applied', code: 'WELCOME10', percentOff: 10, subtotal, amount, total: subtotal - amount, cartId: res.body.id, userId }),
+    );
+  });
+
+  it('matches code case-insensitively and trimmed', async () => {
+    const res = await apply('  welcome10 ');
+    expect(res.status).toBe(200);
+    expect(res.body.discount.code).toBe('WELCOME10');
+  });
+
+  it('rejects a second different code with 409 DISCOUNT_ALREADY_APPLIED', async () => {
+    await addItem(0, 1);
+    await apply('WELCOME10').expect(200);
+    const info = spyConsole('info');
+    const res = await apply('BREW15');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('DISCOUNT_ALREADY_APPLIED');
+    expect(res.body.message).toBe('Only one discount code can be used per order. Remove WELCOME10 to use a different code.');
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.rejected', reason: 'already_applied', code: 'BREW15', appliedCode: 'WELCOME10' }),
+    );
+    const after = await request(app).get('/api/cart').set(auth());
+    expect(after.body.discount.code).toBe('WELCOME10');
+  });
+
+  it('re-applying the same code is idempotent', async () => {
+    await addItem(0, 1);
+    const first = await apply('WELCOME10');
+    const second = await apply('welcome10');
+    expect(second.status).toBe(200);
+    expect(second.body.discount).toEqual(first.body.discount);
+    expect(await prisma.cartDiscount.count({ where: { cartId: first.body.id } })).toBe(1);
+  });
+
+  it('unknown code → 404 DISCOUNT_NOT_FOUND', async () => {
+    const info = spyConsole('info');
+    const res = await apply('NOPE');
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'This discount code is not valid.', code: 'DISCOUNT_NOT_FOUND', statusCode: 404 });
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.rejected', reason: 'not_found', code: 'NOPE', userId }),
+    );
+  });
+
+  it('inactive code → 404', async () => {
+    const res = await apply('RETIRED20');
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('DISCOUNT_NOT_FOUND');
+  });
+
+  it('empty or missing code → 400 VALIDATION_ERROR', async () => {
+    expect((await apply('   ')).status).toBe(400);
+    expect((await apply(undefined)).body.code).toBe('VALIDATION_ERROR');
+    expect((await apply('X'.repeat(33))).status).toBe(400);
+  });
+
+  it('applying a code to an empty cart → 200, amount 0', async () => {
+    const res = await apply('WELCOME10');
+    expect(res.status).toBe(200);
+    expect(res.body.discount).toEqual({ code: 'WELCOME10', percentOff: 10, amount: 0 });
+    expect(res.body.total).toBe(0);
+  });
+
+  it('deactivated applied code → BREW15 applies 200', async () => {
+    await attach('TEMP30');
+    await prisma.discountCode.update({ where: { code: 'TEMP30' }, data: { active: false } });
+    const res = await apply('BREW15');
+    expect(res.status).toBe(200);
+    expect(res.body.discount.code).toBe('BREW15');
+  });
+
+  it('P2002 path returns 409 when the pre-check is bypassed', async () => {
+    await attach('WELCOME10');
+    overrideOnce(prisma.cartDiscount, 'findUnique', () => Promise.resolve(null));
+    const info = spyConsole('info');
+    const res = await apply('BREW15');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('DISCOUNT_ALREADY_APPLIED');
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.rejected', reason: 'already_applied', via: 'P2002', appliedCode: 'WELCOME10' }),
+    );
+  });
+
+  it('P2002 path with the same code returns 200', async () => {
+    await attach('WELCOME10');
+    overrideOnce(prisma.cartDiscount, 'findUnique', () => Promise.resolve(null));
+    const res = await apply('WELCOME10');
+    expect(res.status).toBe(200);
+    expect(res.body.discount.code).toBe('WELCOME10');
+  });
+
+  it('concurrent applies of two codes on an existing cart → one 200, one 409, one row', async () => {
+    const id = await cartId();
+    const results = await Promise.all([apply('WELCOME10'), apply('BREW15')]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(await prisma.cartDiscount.count({ where: { cartId: id } })).toBe(1);
+  });
+
+  it("user B applying a code leaves user A's cart unchanged", async () => {
+    await addItem(0, 1);
+    await apply('WELCOME10').expect(200);
+    const other = await request(app).post('/api/auth/register').send({
+      email: 'discount-other@zava.com',
+      password: 'OtherPass123',
+      name: 'Other Shopper',
+    });
+    await apply('BREW15', { Authorization: `Bearer ${other.body.token}` }).expect(200);
+    const mine = await request(app).get('/api/cart').set(auth());
+    expect(mine.body.discount.code).toBe('WELCOME10');
+  });
+
+  it('POST /api/cart/discount → 500 when prisma throws', async () => {
+    const errors = spyConsole('error');
+    failOnce(prisma.discountCode, 'findUnique');
+    const res = await apply('WELCOME10');
+    expect(res.status).toBe(500);
+    expect(loggedEvents(errors)).toContainEqual(
+      expect.objectContaining({ event: 'http.error', method: 'POST', path: '/api/cart/discount', userId }),
+    );
+  });
+
+  it('DELETE /api/cart/discount removes it, then a new code applies', async () => {
+    await addItem(0, 1);
+    await apply('WELCOME10').expect(200);
+    const info = spyConsole('info');
+    const res = await request(app).delete('/api/cart/discount').set(auth());
+    expect(res.status).toBe(200);
+    expect(res.body.discount).toBeNull();
+    expect(res.body.total).toBe(res.body.subtotal);
+    expect(loggedEvents(info)).toContainEqual(
+      expect.objectContaining({ event: 'discount.removed', code: 'WELCOME10', cartId: res.body.id, userId }),
+    );
+    expect((await apply('BREW15')).body.discount.code).toBe('BREW15');
+  });
+
+  it('DELETE /api/cart/discount with none applied → 200', async () => {
+    const info = spyConsole('info');
+    const res = await request(app).delete('/api/cart/discount').set(auth());
+    expect(res.status).toBe(200);
+    expect(res.body.discount).toBeNull();
+    expect(loggedEvents(info).filter((e: { event: string }) => e.event === 'discount.removed')).toHaveLength(0);
+  });
+
+  it('DELETE /api/cart/discount requires auth', async () => {
+    expect((await request(app).delete('/api/cart/discount')).status).toBe(401);
+  });
+
+  it('DELETE /api/cart/discount → 500 when prisma throws', async () => {
+    const errors = spyConsole('error');
+    failOnce(prisma.cartDiscount, 'findUnique');
+    const res = await request(app).delete('/api/cart/discount').set(auth());
+    expect(res.status).toBe(500);
+    expect(loggedEvents(errors)).toContainEqual(
+      expect.objectContaining({ event: 'http.error', method: 'DELETE', path: '/api/cart/discount', userId }),
+    );
+  });
+
   it('DB rejects a second CartDiscount for the same cart with P2002', async () => {
     const cart = await prisma.cart.create({ data: { userId } });
     const codes = await prisma.discountCode.findMany({ where: { code: { in: ['WELCOME10', 'BREW15'] } } });
