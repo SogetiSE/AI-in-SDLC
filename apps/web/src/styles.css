@@ -720,3 +720,67 @@ a:hover {
   margin: 0 auto;
   font-size: 1.05rem;
 }
+
+/* Discount code (issue #3) */
+.discount-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.discount-form__applied {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  color: var(--color-olive);
+}
+
+.discount-form__amount {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.discount-form__remove {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.discount-form__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.discount-form__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.discount-form__controls .checkout__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.discount-form__error {
+  margin: 0;
+  color: #a1341f;
+  font-size: 0.9rem;
+}
+
+.cart-summary__row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.cart-summary__row--discount {
+  color: var(--color-olive);
+}
+
+.cart-summary__row--total {
+  font-size: 1.1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}

@@ -117,6 +117,7 @@ app.get('/', (_req, res) => {
                 <li><a href="/api/products">/api/products</a> for catalog data</li>
                 <li><code>/api/products/:id</code> for product details</li>
                 <li><code>/api/cart</code> for the authenticated shopper cart</li>
+                <li><code>/api/cart/discount</code> to apply or remove a discount code</li>
                 <li><code>/api/auth/login</code> and <code>/api/auth/register</code> for auth flows</li>
               </ul>
             </section>

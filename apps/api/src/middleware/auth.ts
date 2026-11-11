@@ -22,8 +22,20 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
   }
 
   const token = authHeader.slice(7);
+  let payload: { userId: string; role: string };
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+    payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+  } catch (err) {
+    // Only token problems are a 401. TokenExpiredError and NotBeforeError extend JsonWebTokenError.
+    if (err instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ message: 'Invalid or expired token', code: 'UNAUTHORIZED', statusCode: 401 });
+      return;
+    }
+    next(err);
+    return;
+  }
+
+  try {
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: { id: true, role: true },
@@ -36,10 +48,12 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
 
     req.userId = payload.userId;
     req.userRole = user.role;
-    next();
-  } catch {
-    res.status(401).json({ message: 'Invalid or expired token', code: 'UNAUTHORIZED', statusCode: 401 });
+  } catch (err) {
+    // A DB failure is not an auth failure: surface it as a logged 500, not a silent 401.
+    next(err);
+    return;
   }
+  next();
 }
 
 export function signToken(userId: string, role: string): string {

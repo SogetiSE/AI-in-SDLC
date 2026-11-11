@@ -2,14 +2,15 @@ import { Link } from 'react-router-dom';
 import { formatPrice } from '@zava/shared';
 import { useCart } from '../hooks/useCart';
 import { CartItemRow } from '../components/CartItemRow';
+import { DiscountCodeForm } from '../components/DiscountCodeForm';
 
 export function CartPage() {
-  const { cart, loading, removeItem } = useCart();
+  const { cart, loading, removeItem, discountError, discountPending, applyDiscount, removeDiscount } = useCart();
 
   if (loading) return <div className="loading">Loading cart...</div>;
 
   const items = cart?.items ?? [];
-  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const discount = cart?.discount ?? null;
 
   return (
     <div>
@@ -18,6 +19,24 @@ export function CartPage() {
       {items.length === 0 ? (
         <div className="empty-state">
           <p>Your cart is empty.</p>
+          {discount && (
+            <p className="discount-form__applied" style={{ justifyContent: 'center', marginTop: '0.75rem' }}>
+              <span>
+                <strong>{discount.code}</strong> will apply to your next items
+              </span>
+              <button
+                type="button"
+                className="btn btn--secondary discount-form__remove"
+                onClick={() => {
+                  void removeDiscount();
+                }}
+                disabled={discountPending}
+                aria-label={`Remove discount code ${discount.code}`}
+              >
+                Remove
+              </button>
+            </p>
+          )}
           <Link to="/" className="btn btn--primary" style={{ marginTop: '1rem', display: 'inline-block' }}>
             Continue Shopping
           </Link>
@@ -51,15 +70,34 @@ export function CartPage() {
               marginLeft: 'auto',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <DiscountCodeForm
+              discount={discount}
+              error={discountError}
+              pending={discountPending}
+              onApply={(code) => {
+                void applyDiscount(code);
+              }}
+              onRemove={() => {
+                void removeDiscount();
+              }}
+            />
+            <div className="cart-summary__row" data-testid="cart-subtotal">
               <span>Subtotal ({items.length} items)</span>
-              <strong>{formatPrice(total)}</strong>
+              <span>{formatPrice(cart?.subtotal ?? 0)}</span>
+            </div>
+            {discount && (
+              <div className="cart-summary__row cart-summary__row--discount" data-testid="cart-discount">
+                <span>Discount ({discount.code})</span>
+                <span>−{formatPrice(discount.amount)}</span>
+              </div>
+            )}
+            <div className="cart-summary__row cart-summary__row--total" data-testid="cart-total">
+              <strong>Total</strong>
+              <strong>{formatPrice(cart?.total ?? 0)}</strong>
             </div>
             <Link to="/checkout" className="btn btn--primary" style={{ width: '100%' }}>
               Proceed to Checkout
             </Link>
-
-
           </div>
         </>
       )}

@@ -66,8 +66,16 @@ zava-storefront/
 | stock      | Int      |                   |
 
 ### Cart / CartItem
-- One Cart per User (1:1).
+- One Cart per User by convention. This is not enforced: `Cart.userId` is not unique.
 - CartItem links Cart ↔ Product with a quantity field.
+
+### DiscountCode / CartDiscount
+- `DiscountCode`: `code` (unique, upper case), `percentOff`, `active`. Seeded; no admin UI.
+- `CartDiscount` links a Cart to the DiscountCode applied to it. `cartId` is unique, so a cart
+  holds at most one discount (no stacking); it is deleted with its cart.
+- Totals are computed only on the server (`apps/api/src/services/pricing.ts`): percentage off the
+  whole subtotal, capped at 50%, floored to whole cents. Free shipping (≥ $75 of pre-discount
+  subtotal) is computed in the web checkout. See `docs/features/3-discount-codes/`.
 
 ## Key design decisions
 

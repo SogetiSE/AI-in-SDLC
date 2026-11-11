@@ -38,9 +38,10 @@ model Cart {
   id        String     @id @default(cuid())
   userId    String
   user      User       @relation(fields: [userId], references: [id])
-  items     CartItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  items        CartItem[]
+  cartDiscount CartDiscount?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model CartItem {
@@ -50,6 +51,27 @@ model CartItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
+}
+
+model DiscountCode {
+  id         String         @id @default(cuid())
+  code       String         @unique // stored upper-case
+  percentOff Int            // pricing clamps to 0–50
+  active     Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  carts      CartDiscount[]
+}
+
+// At most one discount per cart (unique cartId). Allowing combinable discounts later
+// means dropping @unique and making Cart.cartDiscount a list.
+model CartDiscount {
+  id             String       @id @default(cuid())
+  cartId         String       @unique
+  cart           Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  discountCodeId String
+  discountCode   DiscountCode @relation(fields: [discountCodeId], references: [id])
+  appliedAt      DateTime     @default(now())
 }
 
 // TODO(copilot): Add a Review model during Demo 2.

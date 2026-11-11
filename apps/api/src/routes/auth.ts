@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../models/prisma.js';
 import { signToken } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
 
 export const authRouter = Router();
 
@@ -18,7 +19,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-authRouter.post('/register', validate(registerSchema), async (req: Request, res: Response) => {
+authRouter.post('/register', validate(registerSchema), asyncHandler(async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -37,9 +38,9 @@ authRouter.post('/register', validate(registerSchema), async (req: Request, res:
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt },
   });
-});
+}));
 
-authRouter.post('/login', validate(loginSchema), async (req: Request, res: Response) => {
+authRouter.post('/login', validate(loginSchema), asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -59,4 +60,4 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt },
   });
-});
+}));

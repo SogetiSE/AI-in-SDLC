@@ -1,24 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { Cart } from '@zava/shared';
 import { ApiError, api } from '../services/apiClient';
-
-interface CartItem {
-  id: string;
-  productId: string;
-  quantity: number;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    imageUrl: string;
-  };
-}
-
-interface Cart {
-  id: string;
-  items: CartItem[];
-  total: number;
-}
 
 interface CartContextValue {
   cart: Cart | null;
@@ -30,6 +13,11 @@ interface CartContextValue {
   fetchCart: () => Promise<void>;
   addItem: (productId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
+  /** Server message from the last failed apply/remove, cleared on success. */
+  discountError: string | null;
+  discountPending: boolean;
+  applyDiscount: (code: string) => Promise<void>;
+  removeDiscount: () => Promise<void>;
 }
 
 interface StoredUser {
@@ -69,6 +57,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discountPending, setDiscountPending] = useState(false);
   const [demoUserName, setDemoUserName] = useState<string | null>(() => getStoredUser()?.name ?? null);
 
   const fetchCart = useCallback(async () => {
@@ -149,29 +139,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleMutationError = useCallback((err: unknown) => {
+    if (isUnauthorizedError(err)) {
+      clearStoredSession();
+      setDemoUserName(null);
+    }
+  }, []);
+
   const removeItem = useCallback(async (itemId: string) => {
     setError(null);
     try {
       await api.removeFromCart(itemId);
-      setCart((prev) =>
-        prev
-          ? {
-              ...prev,
-              items: prev.items.filter((i) => i.id !== itemId),
-              total: prev.items
-                .filter((i) => i.id !== itemId)
-                .reduce((sum, i) => sum + i.product.price * i.quantity, 0),
-            }
-          : null,
-      );
+      // Refresh silently (no loading flag) so the page does not flash; the server
+      // recalculates subtotal, discount and total.
+      setCart(await api.getCart());
     } catch (err) {
-      if (isUnauthorizedError(err)) {
-        clearStoredSession();
-        setDemoUserName(null);
-      }
+      handleMutationError(err);
       setError(err instanceof Error ? err.message : 'Failed to remove item');
     }
-  }, []);
+  }, [handleMutationError]);
+
+  const applyDiscount = useCallback(async (code: string) => {
+    setDiscountPending(true);
+    try {
+      setCart(await api.applyDiscount(code));
+      setDiscountError(null);
+    } catch (err) {
+      handleMutationError(err);
+      setDiscountError(err instanceof Error ? err.message : 'Failed to apply discount code');
+    } finally {
+      setDiscountPending(false);
+    }
+  }, [handleMutationError]);
+
+  const removeDiscount = useCallback(async () => {
+    setDiscountPending(true);
+    try {
+      setCart(await api.removeDiscount());
+      setDiscountError(null);
+    } catch (err) {
+      handleMutationError(err);
+      setDiscountError(err instanceof Error ? err.message : 'Failed to remove discount code');
+    } finally {
+      setDiscountPending(false);
+    }
+  }, [handleMutationError]);
 
   const itemCount = cart?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
 
@@ -186,8 +198,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
       fetchCart,
       addItem,
       removeItem,
+      discountError,
+      discountPending,
+      applyDiscount,
+      removeDiscount,
     }),
-    [addItem, cart, demoUserName, error, fetchCart, itemCount, loading, removeItem],
+    [
+      addItem,
+      applyDiscount,
+      cart,
+      demoUserName,
+      discountError,
+      discountPending,
+      error,
+      fetchCart,
+      itemCount,
+      loading,
+      removeDiscount,
+      removeItem,
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
